@@ -1,0 +1,7 @@
+[package]
+name = "mediary-cli"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+mediary-core = { path = "../mediary-core" }

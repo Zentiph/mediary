@@ -1,0 +1,7 @@
+[workspace]
+resolver = "2"
+members = [
+    "mediary-core",
+    "mediary-gui",
+    "mediary-cli",
+]
