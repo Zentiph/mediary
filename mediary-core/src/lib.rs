@@ -3,7 +3,7 @@
 //! The core library of mediary, an efficient media-browsing application.
 //! This lib should be used for both the CLI and GUI applications of mediary.
 
-mod media;
+mod media_types;
 
 #[cfg(test)]
 mod tests {
