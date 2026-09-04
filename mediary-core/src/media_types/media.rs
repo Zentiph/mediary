@@ -27,7 +27,6 @@ use crate::media_types::media_type::MediaType;
 ///
 /// - `id` (`Option<i64>`) - The database ID of the media, if it exists.
 /// - `path` (`PathBuf`) - The path to the file where the media is stored.
-/// - `filename` (`String`) - The name of the file where the media is stored.
 /// - `media_type` (`MediaType`) - The type of this media.
 /// - `size_bytes` (`u64`) - The size of this media in bytes.
 /// - `added_at` (`SystemTime`) - The time this media was added.
@@ -35,7 +34,6 @@ use crate::media_types::media_type::MediaType;
 pub struct Media {
     pub id: Option<i64>,
     pub path: PathBuf,
-    pub filename: String,
     pub media_type: MediaType,
     pub size_bytes: u64,
     pub added_at: SystemTime,
@@ -44,8 +42,8 @@ pub struct Media {
 
 impl PartialEq for Media {
     fn eq(&self, other: &Self) -> bool {
-        // same path and filename, must be the same file
-        self.path == other.path && self.filename == other.filename
+        // same path, must be the same file
+        self.path == other.path
     }
 }
 impl Eq for Media {}
