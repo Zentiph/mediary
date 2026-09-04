@@ -1,7 +1,6 @@
-//! # mediary-core
+//! # types
 //!
-//! The core library of mediary, an efficient media-browsing application.
-//! This lib should be used for both the CLI and GUI applications of mediary.
+//! A module containing the media types used in mediary.
 //!
 //! Copyright (C) 2026  Gavin Borne
 //!
@@ -18,7 +17,13 @@
 //! You should have received a copy of the GNU General Public License
 //! along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-mod types;
+pub mod media;
+pub mod media_type;
+pub mod tag;
 
-#[cfg(test)]
-mod tests {}
+#[allow(unused_imports)]
+pub use media::Media;
+#[allow(unused_imports)]
+pub use media_type::MediaType;
+#[allow(unused_imports)]
+pub use tag::Tag;

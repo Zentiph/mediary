@@ -1,4 +1,4 @@
-//! # media
+//! # media.rs
 //!
 //! The media struct.
 //!
@@ -19,7 +19,7 @@
 
 use std::{path::PathBuf, time::SystemTime};
 
-use crate::media_types::media_type::MediaType;
+use crate::types::media_type::MediaType;
 
 /// A representation of a media file stored in mediary.
 ///
@@ -37,6 +37,7 @@ pub struct Media {
     pub media_type: MediaType,
     pub size_bytes: u64,
     pub added_at: SystemTime,
+    // TODO:
     // pub thumbnail_path: Option<PathBuf>,
 }
 
