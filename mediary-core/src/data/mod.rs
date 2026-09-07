@@ -1,7 +1,6 @@
-//! # mediary-core
+//! # db
 //!
-//! The core library of mediary, an efficient media-browsing application.
-//! This lib should be used for both the CLI and GUI applications of mediary.
+//! A module containing mediary's database functionality.
 //!
 //! Copyright (C) 2026  Gavin Borne
 //!
@@ -18,8 +17,5 @@
 //! You should have received a copy of the GNU General Public License
 //! along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-mod data;
-mod types;
-
-#[cfg(test)]
-mod tests {}
+pub mod app_data;
+pub mod database;
