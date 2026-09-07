@@ -17,7 +17,7 @@
 //! You should have received a copy of the GNU General Public License
 //! along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-use strum::{AsRefStr, Display, EnumString, IntoStaticStr};
+use strum::{AsRefStr, Display, EnumIter, EnumString, IntoStaticStr};
 
 /// A type of media that can be represented in mediary.
 ///
@@ -38,6 +38,7 @@ use strum::{AsRefStr, Display, EnumString, IntoStaticStr};
     Eq,
     AsRefStr,
     Display,
+    EnumIter,
     EnumString,
     IntoStaticStr,
 )]

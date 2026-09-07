@@ -18,8 +18,9 @@
 //! along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 use rusqlite::Connection;
+use strum::IntoEnumIterator;
 
-use crate::data::app_data::get_app_data_file;
+use crate::{data::app_data::get_app_data_file, types::MediaType};
 
 const DB_NAME: &str = "mediary.db";
 const DB_SCHEMA: &str = include_str!("schema.sql");
@@ -61,3 +62,46 @@ fn create_schema(conn: &Connection) -> rusqlite::Result<()> {
     conn.execute_batch(DB_SCHEMA)?;
     Ok(())
 }
+
+/// Ensures the builtin tags exist in the database.
+///
+/// # Arguments
+///
+/// - `conn` (`&Connection`) - The DB connection.
+///
+/// # Returns
+///
+/// - `rusqlite::Result<()>` - The result of the operation.
+///
+/// # Errors
+///
+/// If the builtin tags fail to write to the DB.
+fn ensure_builtin_tags_exist_in_db(conn: &Connection) -> rusqlite::Result<()> {
+    for media_type in MediaType::iter() {
+        conn.execute(
+            "INSERT OR IGNORE INTO tags (name, is_builtin) VALUES (?1, TRUE)",
+            [media_type.to_string().as_str()],
+        )?;
+    }
+    Ok(())
+}
+
+/// Initialize the database.
+///
+/// # Returns
+///
+/// - `rusqlite::Result<Connection>` - The result DB connection.
+///
+/// # Errors
+///
+/// If the DB connection fails.
+/// If the schema fails to write to the DB.
+pub fn init_db() -> rusqlite::Result<Connection> {
+    let conn = connect()?;
+    create_schema(&conn)?;
+    ensure_builtin_tags_exist_in_db(&conn)?;
+    Ok(conn)
+}
+
+#[cfg(test)]
+mod tests {}
