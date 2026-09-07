@@ -1,0 +1,21 @@
+CREATE TABLE IF NOT EXISTS media (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    path TEXT UNIQUE NOT NULL,
+    media_type TEXT NOT NULL,
+    size_bytes INTEGER NOT NULL,
+    added_at INTEGER NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS tags (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT UNIQUE NOT NULL,
+    is_builtin INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS media_tags (
+    media_id INTEGER NOT NULL,
+    tag_id INTEGER NOT NULL,
+    PRIMARY KEY (media_id, tag_id),
+    FOREIGN KEY (media_id) REFERENCES media (id),
+    FOREIGN KEY (tag_id) REFERENCES tags (id)
+);
