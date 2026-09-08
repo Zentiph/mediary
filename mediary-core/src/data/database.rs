@@ -17,6 +17,8 @@
 //! You should have received a copy of the GNU General Public License
 //! along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+use std::path::PathBuf;
+
 use rusqlite::Connection;
 use strum::IntoEnumIterator;
 
@@ -26,6 +28,25 @@ const DB_NAME: &str = "mediary.db";
 const DB_SCHEMA: &str = include_str!("schema.sql");
 
 // TODO: REPLACE ALL PANICS/.expect()s WITH PROPER ERROR PROPAGATION
+
+/// Connect to the database at the given path.
+///
+/// # Arguments
+///
+/// - `path` (`&PathBuf`) - The path to the DB.
+///
+/// # Returns
+///
+/// - `rusqlite::Result<Connection>` - The DB connection
+///
+/// # Errors
+///
+/// If the DB connection fails.
+fn connect_at(path: &PathBuf) -> rusqlite::Result<Connection> {
+    let conn = Connection::open(path)?;
+    conn.execute("PRAGMA foreign_keys = ON", [])?;
+    Ok(conn)
+}
 
 /// Connect to mediary's database.
 ///
@@ -37,12 +58,10 @@ const DB_SCHEMA: &str = include_str!("schema.sql");
 ///
 /// If the DB connection fails.
 fn connect() -> rusqlite::Result<Connection> {
-    let conn = Connection::open(
-        get_app_data_file(DB_NAME)
-            .expect("Could not write to app data directory"),
-    )?;
-    conn.execute("PRAGMA foreign_keys = ON", [])?;
-    Ok(conn)
+    connect_at(
+        &get_app_data_file(DB_NAME)
+            .expect("Failed to write to app data directory."),
+    )
 }
 
 /// Creates the DB schema.
