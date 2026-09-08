@@ -71,4 +71,74 @@ impl Display for Tag {
 }
 
 #[cfg(test)]
-mod tests {}
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_tag_eq_builtin_only_checks_media_type() {
+        let tag1 = Tag::Builtin {
+            id: None,
+            media_type: MediaType::Image,
+        };
+        let tag2 = Tag::Builtin {
+            id: Some(1),
+            media_type: MediaType::Image,
+        };
+        let tag3 = Tag::Builtin {
+            id: None,
+            media_type: MediaType::Audio,
+        };
+        assert_eq!(tag1, tag2);
+        assert_ne!(tag1, tag3);
+    }
+
+    #[test]
+    fn test_tag_eq_custom_only_checks_name() {
+        let tag1 = Tag::Custom {
+            id: None,
+            name: "Funny".into(),
+        };
+        let tag2 = Tag::Custom {
+            id: Some(1),
+            name: "Funny".into(),
+        };
+        let tag3 = Tag::Custom {
+            id: None,
+            name: "Serious".into(),
+        };
+        assert_eq!(tag1, tag2);
+        assert_ne!(tag1, tag3);
+    }
+
+    #[test]
+    fn test_tag_eq_builtin_and_custom_never_true() {
+        let tag1 = Tag::Builtin {
+            id: None,
+            media_type: MediaType::Image,
+        };
+        let tag2 = Tag::Custom {
+            id: None,
+            name: "Image".into(),
+        };
+        assert_ne!(tag1, tag2);
+        assert_ne!(tag2, tag1);
+    }
+
+    #[test]
+    fn test_tag_display_builtin_uses_media_type_display() {
+        let tag = Tag::Builtin {
+            id: None,
+            media_type: MediaType::Image,
+        };
+        assert_eq!(tag.to_string(), "Image");
+    }
+
+    #[test]
+    fn test_tag_display_custom_uses_name() {
+        let tag = Tag::Custom {
+            id: None,
+            name: "Funny".into(),
+        };
+        assert_eq!(tag.to_string(), "Funny");
+    }
+}
