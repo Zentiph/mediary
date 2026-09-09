@@ -17,7 +17,6 @@
 //! You should have received a copy of the GNU General Public License
 //! along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-use std::str::FromStr;
 use strum::{AsRefStr, Display, EnumIter, EnumString, IntoStaticStr};
 
 /// A type of media that can be represented in mediary.
@@ -59,15 +58,11 @@ pub enum MediaType {
     #[strum(ascii_case_insensitive)]
     Unknown,
 }
-impl From<String> for MediaType {
-    fn from(value: String) -> Self {
-        MediaType::from_str(&value).unwrap_or(MediaType::Unknown)
-    }
-}
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::str::FromStr;
 
     #[test]
     fn test_media_type_display() {
