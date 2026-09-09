@@ -17,17 +17,48 @@
 //! You should have received a copy of the GNU General Public License
 //! along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-use std::path::Path;
+use std::{error::Error, fmt, path::Path};
 
-use rusqlite::Connection;
+use rusqlite::{Connection, params};
 use strum::IntoEnumIterator;
 
-use crate::{data::app_data::get_app_data_file, types::MediaType};
+use crate::{
+    data::{
+        app_data::get_app_data_file, conversion::system_time_to_unix_timestamp,
+    },
+    types::{Media, MediaType},
+};
 
 const DB_NAME: &str = "mediary.db";
 const DB_SCHEMA: &str = include_str!("schema.sql");
 
 // TODO: REPLACE ALL PANICS/.expect()s WITH PROPER ERROR PROPAGATION
+
+/// An error that may occur on SQL insert instructions.
+///
+/// # Variants
+///
+/// - `AlreadyExists` - The item already exists.
+/// - `SqliteError(rusqlite::Error)` - An SQL error.
+/// - `Other(Box<dyn Error>)` - Any other error.
+#[derive(Debug)]
+pub enum SqliteInsertError {
+    AlreadyExists,
+    SqliteError(rusqlite::Error),
+    Other(Box<dyn Error>),
+}
+impl fmt::Display for SqliteInsertError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            SqliteInsertError::AlreadyExists => {
+                write!(f, "Item with this path already exists")
+            }
+            SqliteInsertError::SqliteError(e) => write!(f, "{e}"),
+            SqliteInsertError::Other(e) => write!(f, "{e}"),
+        }
+    }
+}
+impl Error for SqliteInsertError {}
 
 /// Connect to the database at the given path.
 ///
@@ -125,6 +156,31 @@ pub fn init_db() -> rusqlite::Result<Connection> {
         &get_app_data_file(DB_NAME)
             .expect("Failed to write to the app data directory."),
     )
+}
+
+pub fn insert_media(
+    conn: &Connection,
+    media: &Media,
+) -> Result<i64, SqliteInsertError> {
+    let path = media.path.to_string_lossy().to_string();
+    let media_type = media.media_type.to_string();
+    let size_bytes = media.size_bytes as i64;
+    let added_at = system_time_to_unix_timestamp(media.added_at)
+        .map_err(|e| SqliteInsertError::Other(Box::new(e)))?;
+
+    let res = conn.execute(
+        "INSERT INTO media (path, media_type, size_bytes, added_at) VALUES (?1, ?2, ?3, ?4)",
+        params![path, media_type, size_bytes, added_at],
+    );
+    match res {
+        Ok(_) => Ok(conn.last_insert_rowid()),
+        Err(rusqlite::Error::SqliteFailure(err, _))
+            if err.code == rusqlite::ErrorCode::ConstraintViolation =>
+        {
+            Err(SqliteInsertError::AlreadyExists)
+        }
+        Err(e) => Err(SqliteInsertError::SqliteError(e)),
+    }
 }
 
 #[cfg(test)]
