@@ -158,6 +158,22 @@ pub fn init_db() -> rusqlite::Result<Connection> {
     )
 }
 
+/// Insert a media item into the database.
+///
+/// # Arguments
+///
+/// - `conn` (`&Connection`) - The DB connection.
+/// - `media` (`&Media`) - The media to insert.
+///
+/// # Returns
+///
+/// - `Result<i64, SqliteInsertError>` - The row ID of the inserted item.
+///
+/// # Errors
+///
+/// If the item already exists.
+/// If the insert fails.
+/// If there is an issue serializing the data.
 pub fn insert_media(
     conn: &Connection,
     media: &Media,
