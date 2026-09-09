@@ -56,7 +56,7 @@ pub fn system_time_to_unix_timestamp(
 /// If the timestamp is negative.
 pub fn unix_timestamp_to_system_time(
     timestamp: i64,
-) -> Result<SystemTime, Box<dyn Error>> {
+) -> Result<SystemTime, Box<dyn Error + Send + Sync>> {
     if timestamp < 0 {
         Err("Unix timestamp cannot be negative".into())
     } else {
