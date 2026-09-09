@@ -17,7 +17,10 @@
 //! You should have received a copy of the GNU General Public License
 //! along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-use std::time::{Duration, SystemTime, SystemTimeError, UNIX_EPOCH};
+use std::{
+    error::Error,
+    time::{Duration, SystemTime, SystemTimeError, UNIX_EPOCH},
+};
 
 /// Convert a system time to a Unix timestamp.
 ///
@@ -46,9 +49,19 @@ pub fn system_time_to_unix_timestamp(
 ///
 /// # Returns
 ///
-/// - `SystemTime` - The system time.
-pub fn unix_timestamp_to_system_time(timestamp: i64) -> SystemTime {
-    SystemTime::UNIX_EPOCH + Duration::from_secs(timestamp as u64)
+/// - `Result<SystemTime, Box<dyn Error>>` - The system time.
+///
+/// # Errors
+///
+/// If the timestamp is negative.
+pub fn unix_timestamp_to_system_time(
+    timestamp: i64,
+) -> Result<SystemTime, Box<dyn Error>> {
+    if timestamp < 0 {
+        Err("Unix timestamp cannot be negative".into())
+    } else {
+        Ok(SystemTime::UNIX_EPOCH + Duration::from_secs(timestamp as u64))
+    }
 }
 
 #[cfg(test)]
