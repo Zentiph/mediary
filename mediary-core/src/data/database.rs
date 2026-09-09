@@ -48,22 +48,6 @@ fn connect_at(path: &PathBuf) -> rusqlite::Result<Connection> {
     Ok(conn)
 }
 
-/// Connect to mediary's database.
-///
-/// # Returns
-///
-/// - `rusqlite::Result<Connection>` - The DB connection.
-///
-/// # Errors
-///
-/// If the DB connection fails.
-fn connect() -> rusqlite::Result<Connection> {
-    connect_at(
-        &get_app_data_file(DB_NAME)
-            .expect("Failed to write to app data directory."),
-    )
-}
-
 /// Creates the DB schema.
 ///
 /// # Arguments
@@ -105,6 +89,27 @@ fn ensure_builtin_tags_exist_in_db(conn: &Connection) -> rusqlite::Result<()> {
     Ok(())
 }
 
+/// Initialize the database at the given path.
+///
+/// # Arguments
+///
+/// - `path` (`&PathBuf`) - The path to the DB.
+///
+/// # Returns
+///
+/// - `rusqlite::Result<Connection>` - The DB connection.
+///
+/// # Errors
+///
+/// If the DB connection fails.
+/// If the schema fails to write to the DB.
+fn init_db_at(path: &PathBuf) -> rusqlite::Result<Connection> {
+    let conn = connect_at(path)?;
+    create_schema(&conn)?;
+    ensure_builtin_tags_exist_in_db(&conn)?;
+    Ok(conn)
+}
+
 /// Initialize the database.
 ///
 /// # Returns
@@ -116,10 +121,10 @@ fn ensure_builtin_tags_exist_in_db(conn: &Connection) -> rusqlite::Result<()> {
 /// If the DB connection fails.
 /// If the schema fails to write to the DB.
 pub fn init_db() -> rusqlite::Result<Connection> {
-    let conn = connect()?;
-    create_schema(&conn)?;
-    ensure_builtin_tags_exist_in_db(&conn)?;
-    Ok(conn)
+    init_db_at(
+        &get_app_data_file(DB_NAME)
+            .expect("Failed to write to the app data directory."),
+    )
 }
 
 #[cfg(test)]
