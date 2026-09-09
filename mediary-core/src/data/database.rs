@@ -128,4 +128,69 @@ pub fn init_db() -> rusqlite::Result<Connection> {
 }
 
 #[cfg(test)]
-mod tests {}
+mod tests {
+    use tempfile::NamedTempFile;
+
+    use super::*;
+
+    fn temp_db_conn() -> (NamedTempFile, Connection) {
+        let tmp = NamedTempFile::new().unwrap();
+        let conn = connect_at(tmp.path()).unwrap();
+        (tmp, conn)
+    }
+
+    #[test]
+    fn test_connect_at_enables_foreign_keys() {
+        let (_tmp, conn) = temp_db_conn();
+        let fk_enabled: i64 = conn
+            .query_row("PRAGMA foreign_keys", [], |row| row.get(0))
+            .unwrap();
+        assert_eq!(fk_enabled, 1);
+    }
+
+    #[test]
+    fn test_create_schema_is_idempotent() {
+        let (_tmp, conn) = temp_db_conn();
+        create_schema(&conn).unwrap();
+        create_schema(&conn).unwrap();
+    }
+
+    #[test]
+    fn test_foreign_keys_are_enforced() {
+        let (_tmp, conn) = temp_db_conn();
+        create_schema(&conn).unwrap();
+        let result = conn.execute(
+            "INSERT INTO media_tags (media_id, tag_id) VALUES (1, 999)",
+            [],
+        );
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn builtin_tags_seeded_without_duplicates() {
+        let (_tmp, conn) = temp_db_conn();
+        create_schema(&conn).unwrap();
+        ensure_builtin_tags_exist_in_db(&conn).unwrap();
+        ensure_builtin_tags_exist_in_db(&conn).unwrap();
+
+        let count: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM tags WHERE is_builtin = TRUE",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(count, MediaType::iter().count() as i64);
+    }
+
+    #[test]
+    fn init_db_at_runs_full_pipeline() {
+        let tmp = NamedTempFile::new().unwrap();
+        let conn = init_db_at(tmp.path()).unwrap();
+
+        let count: i64 = conn
+            .query_row("SELECT COUNT(*) FROM tags", [], |row| row.get(0))
+            .unwrap();
+        assert_eq!(count, MediaType::iter().count() as i64);
+    }
+}

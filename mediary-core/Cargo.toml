@@ -7,5 +7,8 @@ edition = "2024"
 directories = "6.0.0"
 rusqlite = { version = "0.40.2", features = ["bundled"] }
 strum = { version = "0.28", features = ["derive"] }
+
+[dev-dependencies]
+tempfile = "3.27.0"
 # infer = "0.22.0"
 # walkdir = "2.5.0"
