@@ -133,6 +133,8 @@ mod tests {
 
     use super::*;
 
+    // This also returns the temp file to keep it in scope so that
+    // it doesn't get deleted after leaving this function's scope
     fn temp_db_conn() -> (NamedTempFile, Connection) {
         let tmp = NamedTempFile::new().unwrap();
         let conn = connect_at(tmp.path()).unwrap();
