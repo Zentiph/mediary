@@ -17,7 +17,7 @@
 //! You should have received a copy of the GNU General Public License
 //! along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-use std::path::PathBuf;
+use std::path::Path;
 
 use rusqlite::Connection;
 use strum::IntoEnumIterator;
@@ -33,7 +33,7 @@ const DB_SCHEMA: &str = include_str!("schema.sql");
 ///
 /// # Arguments
 ///
-/// - `path` (`&PathBuf`) - The path to the DB.
+/// - `path` (`&Path`) - The path to the DB.
 ///
 /// # Returns
 ///
@@ -42,7 +42,7 @@ const DB_SCHEMA: &str = include_str!("schema.sql");
 /// # Errors
 ///
 /// If the DB connection fails.
-fn connect_at(path: &PathBuf) -> rusqlite::Result<Connection> {
+fn connect_at(path: &Path) -> rusqlite::Result<Connection> {
     let conn = Connection::open(path)?;
     conn.execute("PRAGMA foreign_keys = ON", [])?;
     Ok(conn)
@@ -93,7 +93,7 @@ fn ensure_builtin_tags_exist_in_db(conn: &Connection) -> rusqlite::Result<()> {
 ///
 /// # Arguments
 ///
-/// - `path` (`&PathBuf`) - The path to the DB.
+/// - `path` (`&Path`) - The path to the DB.
 ///
 /// # Returns
 ///
@@ -103,7 +103,7 @@ fn ensure_builtin_tags_exist_in_db(conn: &Connection) -> rusqlite::Result<()> {
 ///
 /// If the DB connection fails.
 /// If the schema fails to write to the DB.
-fn init_db_at(path: &PathBuf) -> rusqlite::Result<Connection> {
+fn init_db_at(path: &Path) -> rusqlite::Result<Connection> {
     let conn = connect_at(path)?;
     create_schema(&conn)?;
     ensure_builtin_tags_exist_in_db(&conn)?;
