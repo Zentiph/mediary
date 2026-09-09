@@ -65,4 +65,30 @@ pub fn unix_timestamp_to_system_time(
 }
 
 #[cfg(test)]
-mod tests {}
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_sys_time_to_unix_roundtrip_preserves_seconds() {
+        let sys_time = SystemTime::now();
+        let unix_time = system_time_to_unix_timestamp(sys_time).unwrap();
+        let sys_time_from_unix =
+            unix_timestamp_to_system_time(unix_time).unwrap();
+        let unix_time_from_sys =
+            system_time_to_unix_timestamp(sys_time_from_unix).unwrap();
+        assert_eq!(unix_time, unix_time_from_sys);
+    }
+
+    #[test]
+    fn test_sys_time_to_unix_epoch_converts_to_zero() {
+        let sys_time = SystemTime::UNIX_EPOCH;
+        let unix_time = system_time_to_unix_timestamp(sys_time).unwrap();
+        assert_eq!(unix_time, 0);
+    }
+
+    #[test]
+    fn test_unix_to_sys_time_errors_on_invalid_timestamp() {
+        let result = unix_timestamp_to_system_time(-1);
+        assert!(result.is_err());
+    }
+}
