@@ -50,4 +50,31 @@ impl PartialEq for Media {
 impl Eq for Media {}
 
 #[cfg(test)]
-mod tests {}
+mod tests {
+    use super::*;
+
+    fn media_sample(path: &str) -> Media {
+        Media {
+            id: Some(1),
+            path: PathBuf::from(path),
+            media_type: MediaType::Image,
+            size_bytes: 1234,
+            added_at: SystemTime::now(),
+        }
+    }
+
+    #[test]
+    fn test_media_eq_only_checks_path() {
+        let media1 = media_sample("/path/to/file1");
+        let mut media2 = media_sample("/path/to/file1");
+        media2.size_bytes = 1234567890;
+        assert_eq!(media1, media2);
+    }
+
+    #[test]
+    fn test_media_eq_fails_on_different_path() {
+        let media1 = media_sample("/path/to/file1");
+        let media2 = media_sample("/path/to/file2");
+        assert_ne!(media1, media2);
+    }
+}
