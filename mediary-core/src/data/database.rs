@@ -17,14 +17,21 @@
 //! You should have received a copy of the GNU General Public License
 //! along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-use std::{error::Error, fmt, path::Path};
+use std::{
+    error::Error,
+    fmt,
+    path::{Path, PathBuf},
+};
 
 use rusqlite::{Connection, params};
 use strum::IntoEnumIterator;
 
 use crate::{
     data::{
-        app_data::get_app_data_file, conversion::system_time_to_unix_timestamp,
+        app_data::get_app_data_file,
+        conversion::{
+            system_time_to_unix_timestamp, unix_timestamp_to_system_time,
+        },
     },
     types::{Media, MediaType},
 };
@@ -59,6 +66,28 @@ impl fmt::Display for SqliteInsertError {
     }
 }
 impl Error for SqliteInsertError {}
+
+/// An error that may occur on SQL select instructions.
+///
+/// # Variants
+///
+/// - `DoesNotExist` - The item does not exist.
+/// - `SqliteError(rusqlite::Error)` - An SQL error.
+/// - `Other(Box<dyn Error>)` - Any other error.
+#[derive(Debug)]
+pub enum SqliteSelectError {
+    SqliteError(rusqlite::Error),
+    Other(Box<dyn Error>),
+}
+impl fmt::Display for SqliteSelectError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            SqliteSelectError::SqliteError(e) => write!(f, "{e}"),
+            SqliteSelectError::Other(e) => write!(f, "{e}"),
+        }
+    }
+}
+impl Error for SqliteSelectError {}
 
 /// Connect to the database at the given path.
 ///
@@ -196,6 +225,80 @@ pub fn insert_media(
             Err(SqliteInsertError::AlreadyExists)
         }
         Err(e) => Err(SqliteInsertError::SqliteError(e)),
+    }
+}
+
+/// Get a media item from a file path.
+///
+/// # Arguments
+///
+/// - `conn` (`&Connection`) - The DB connection.
+/// - `path` (`&str`) - The path to the media.
+///
+/// # Returns
+///
+/// - `Result<Option<Media>, SqliteSelectError>` - The media.
+///
+/// # Errors
+///
+/// If the select fails.
+/// If there is an issue deserializing the data.
+pub fn get_media_from_path(
+    conn: &Connection,
+    path: &str,
+) -> Result<Option<Media>, SqliteSelectError> {
+    let mut stmt = conn.prepare(
+        "SELECT id, path, media_type, size_bytes, added_at FROM media WHERE path = ?1"
+    ).map_err(SqliteSelectError::SqliteError)?;
+
+    let mut media_iter = stmt
+        .query_map(params![path], |row| {
+            Ok(Media {
+                id: Some(row.get(0)?),
+                path: {
+                    let raw: String = row.get(1)?;
+                    PathBuf::from(raw)
+                },
+                media_type: {
+                    let raw: String = row.get(2)?;
+                    raw.parse::<MediaType>().map_err(|e| {
+                        rusqlite::Error::FromSqlConversionFailure(
+                            2,
+                            rusqlite::types::Type::Text,
+                            Box::new(e),
+                        )
+                    })?
+                },
+                size_bytes: {
+                    let raw: i64 = row.get(3)?;
+                    if raw < 0 {
+                        Err(rusqlite::Error::FromSqlConversionFailure(
+                            3,
+                            rusqlite::types::Type::Integer,
+                            "Size cannot be negative".into(),
+                        ))
+                    } else {
+                        Ok(raw as u64)
+                    }
+                }?,
+                added_at: {
+                    let raw: i64 = row.get(4)?;
+                    unix_timestamp_to_system_time(raw).map_err(|e| {
+                        rusqlite::Error::FromSqlConversionFailure(
+                            4,
+                            rusqlite::types::Type::Integer,
+                            e,
+                        )
+                    })?
+                },
+            })
+        })
+        .map_err(SqliteSelectError::SqliteError)?;
+
+    match media_iter.next() {
+        Some(Ok(media)) => Ok(Some(media)),
+        Some(Err(e)) => Err(SqliteSelectError::SqliteError(e)),
+        None => Ok(None),
     }
 }
 
