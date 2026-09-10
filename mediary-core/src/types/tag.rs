@@ -17,7 +17,7 @@
 //! You should have received a copy of the GNU General Public License
 //! along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-use std::fmt::Display;
+use std::fmt::{Display, Formatter};
 
 use crate::types::media_type::MediaType;
 
@@ -62,7 +62,7 @@ impl PartialEq for Tag {
 impl Eq for Tag {}
 
 impl Display for Tag {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
             Tag::Builtin { media_type: mt, .. } => write!(f, "{}", mt),
             Tag::Custom { name, .. } => write!(f, "{}", name),

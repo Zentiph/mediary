@@ -19,7 +19,7 @@
 
 use std::{
     error::Error,
-    fmt,
+    fmt::{self, Display, Formatter},
     path::{Path, PathBuf},
 };
 
@@ -54,8 +54,8 @@ pub enum SqliteInsertError {
     SqliteError(rusqlite::Error),
     Other(Box<dyn Error>),
 }
-impl fmt::Display for SqliteInsertError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl Display for SqliteInsertError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
             SqliteInsertError::AlreadyExists => {
                 write!(f, "Item with this path already exists")
@@ -79,8 +79,8 @@ pub enum SqliteSelectError {
     SqliteError(rusqlite::Error),
     Other(Box<dyn Error>),
 }
-impl fmt::Display for SqliteSelectError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl Display for SqliteSelectError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
             SqliteSelectError::SqliteError(e) => write!(f, "{e}"),
             SqliteSelectError::Other(e) => write!(f, "{e}"),
@@ -316,9 +316,8 @@ pub fn get_media_from_path(
 
 #[cfg(test)]
 mod tests {
-    use tempfile::NamedTempFile;
-
     use super::*;
+    use tempfile::NamedTempFile;
 
     // This also returns the temp file to keep it in scope so that
     // it doesn't get deleted after leaving this function's scope
