@@ -142,7 +142,10 @@ fn create_schema(conn: &Connection) -> rusqlite::Result<()> {
 fn ensure_builtin_tags_exist_in_db(conn: &Connection) -> rusqlite::Result<()> {
     for media_type in MediaType::iter() {
         conn.execute(
-            "INSERT OR IGNORE INTO tags (name, is_builtin) VALUES (?1, TRUE)",
+            r#"
+            INSERT OR IGNORE INTO tags (name, is_builtin)
+            VALUES (?1, TRUE)
+            "#,
             [media_type.to_string().as_str()],
         )?;
     }
@@ -214,7 +217,10 @@ pub fn insert_media(
         .map_err(|e| SqliteInsertError::Other(Box::new(e)))?;
 
     let res = conn.execute(
-        "INSERT INTO media (path, media_type, size_bytes, added_at) VALUES (?1, ?2, ?3, ?4)",
+        r#"
+        INSERT INTO media (path, media_type, size_bytes, added_at)
+        VALUES (?1, ?2, ?3, ?4)
+        "#,
         params![path, media_type, size_bytes, added_at],
     );
     match res {
@@ -247,9 +253,15 @@ pub fn get_media_from_path(
     conn: &Connection,
     path: &str,
 ) -> Result<Option<Media>, SqliteSelectError> {
-    let mut stmt = conn.prepare(
-        "SELECT id, path, media_type, size_bytes, added_at FROM media WHERE path = ?1"
-    ).map_err(SqliteSelectError::SqliteError)?;
+    let mut stmt = conn
+        .prepare(
+            r#"
+            SELECT id, path, media_type, size_bytes, added_at
+            FROM media
+            WHERE path = ?1
+            "#,
+        )
+        .map_err(SqliteSelectError::SqliteError)?;
 
     let mut media_iter = stmt
         .query_map(params![path], |row| {
