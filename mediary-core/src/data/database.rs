@@ -52,7 +52,7 @@ const DB_SCHEMA: &str = include_str!("schema.sql");
 pub enum SqliteInsertError {
     AlreadyExists,
     SqliteError(rusqlite::Error),
-    Other(Box<dyn Error>),
+    Other(Box<dyn Error + Send + Sync>),
 }
 impl Display for SqliteInsertError {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
@@ -77,7 +77,7 @@ impl Error for SqliteInsertError {}
 #[derive(Debug)]
 pub enum SqliteSelectError {
     SqliteError(rusqlite::Error),
-    Other(Box<dyn Error>),
+    Other(Box<dyn Error + Send + Sync>),
 }
 impl Display for SqliteSelectError {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
