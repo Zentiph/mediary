@@ -65,7 +65,7 @@ mod tests {
     use std::str::FromStr;
 
     #[test]
-    fn test_media_type_display() {
+    fn media_type_display() {
         assert_eq!(MediaType::Image.to_string(), "Image");
         assert_eq!(MediaType::Video.to_string(), "Video");
         assert_eq!(MediaType::Audio.to_string(), "Audio");
@@ -74,7 +74,7 @@ mod tests {
     }
 
     #[test]
-    fn test_media_type_from_str_case_insensitive() {
+    fn media_type_from_str_case_insensitive() {
         assert_eq!(MediaType::from_str("image").unwrap(), MediaType::Image);
         assert_eq!(MediaType::from_str("IMAGE").unwrap(), MediaType::Image);
         assert_eq!(MediaType::from_str("Image").unwrap(), MediaType::Image);
@@ -114,7 +114,7 @@ mod tests {
     }
 
     #[test]
-    fn test_media_type_from_str_fails_invalid_string() {
+    fn media_type_from_str_fails_invalid_string() {
         assert!(MediaType::from_str("NotAMediaType").is_err());
     }
 }

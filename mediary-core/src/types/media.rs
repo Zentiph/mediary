@@ -64,7 +64,7 @@ mod tests {
     }
 
     #[test]
-    fn test_media_eq_only_checks_path() {
+    fn media_eq_only_checks_path() {
         let media1 = media_sample("/path/to/file1");
         let mut media2 = media_sample("/path/to/file1");
         media2.size_bytes = 1234567890;
@@ -72,7 +72,7 @@ mod tests {
     }
 
     #[test]
-    fn test_media_eq_fails_on_different_path() {
+    fn media_eq_fails_on_different_path() {
         let media1 = media_sample("/path/to/file1");
         let media2 = media_sample("/path/to/file2");
         assert_ne!(media1, media2);
