@@ -317,6 +317,7 @@ pub fn get_media_from_path(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::time::SystemTime;
     use tempfile::NamedTempFile;
 
     // This also returns the temp file to keep it in scope so that
@@ -355,7 +356,7 @@ mod tests {
     }
 
     #[test]
-    fn builtin_tags_seeded_without_duplicates() {
+    fn test_builtin_tags_seeded_without_duplicates() {
         let (_tmp, conn) = temp_db_conn();
         create_schema(&conn).unwrap();
         ensure_builtin_tags_exist_in_db(&conn).unwrap();
@@ -372,7 +373,7 @@ mod tests {
     }
 
     #[test]
-    fn init_db_at_runs_full_pipeline() {
+    fn test_init_db_at_runs_full_pipeline() {
         let tmp = NamedTempFile::new().unwrap();
         let conn = init_db_at(tmp.path()).unwrap();
 
@@ -380,5 +381,69 @@ mod tests {
             .query_row("SELECT COUNT(*) FROM tags", [], |row| row.get(0))
             .unwrap();
         assert_eq!(count, MediaType::iter().count() as i64);
+    }
+
+    #[test]
+    fn test_insert_media_inserts_correctly() {
+        let (_tmp, conn) = temp_db_conn();
+        create_schema(&conn).unwrap();
+        let media = Media {
+            id: None,
+            path: PathBuf::from("test"),
+            media_type: MediaType::Image,
+            size_bytes: 0,
+            added_at: SystemTime::now(),
+        };
+        let id = insert_media(&conn, &media).unwrap();
+        assert!(id > 0);
+    }
+
+    #[test]
+    fn test_insert_media_errors_on_duplicate() {
+        let (_tmp, conn) = temp_db_conn();
+        create_schema(&conn).unwrap();
+        let media = Media {
+            id: None,
+            path: PathBuf::from("test"),
+            media_type: MediaType::Image,
+            size_bytes: 0,
+            added_at: SystemTime::now(),
+        };
+        insert_media(&conn, &media).unwrap();
+        let result = insert_media(&conn, &media);
+        assert!(matches!(result, Err(SqliteInsertError::AlreadyExists)));
+    }
+
+    #[test]
+    fn test_insert_get_media_round_trip() {
+        let (_tmp, conn) = temp_db_conn();
+        create_schema(&conn).unwrap();
+        let media = Media {
+            id: None,
+            path: PathBuf::from("test"),
+            media_type: MediaType::Image,
+            size_bytes: 0,
+            added_at: SystemTime::now(),
+        };
+        insert_media(&conn, &media).unwrap();
+        let result =
+            get_media_from_path(&conn, &media.path.to_string_lossy()).unwrap();
+        let unwrapped = result.unwrap();
+        assert_eq!(media, unwrapped);
+        assert!(unwrapped.id.is_some());
+        assert_eq!(media.media_type, unwrapped.media_type);
+        assert_eq!(media.size_bytes, unwrapped.size_bytes);
+        assert_eq!(
+            system_time_to_unix_timestamp(media.added_at).unwrap(),
+            system_time_to_unix_timestamp(unwrapped.added_at).unwrap()
+        );
+    }
+
+    #[test]
+    fn test_get_media_returns_none_on_nonexistent_path() {
+        let (_tmp, conn) = temp_db_conn();
+        create_schema(&conn).unwrap();
+        let result = get_media_from_path(&conn, "nonexistent").unwrap();
+        assert!(result.is_none());
     }
 }
