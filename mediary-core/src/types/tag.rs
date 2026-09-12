@@ -75,7 +75,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_tag_eq_builtin_only_checks_media_type() {
+    fn tag_eq_builtin_only_checks_media_type() {
         let tag1 = Tag::Builtin {
             id: None,
             media_type: MediaType::Image,
@@ -93,7 +93,7 @@ mod tests {
     }
 
     #[test]
-    fn test_tag_eq_custom_only_checks_name() {
+    fn tag_eq_custom_only_checks_name() {
         let tag1 = Tag::Custom {
             id: None,
             name: "Funny".into(),
@@ -111,7 +111,7 @@ mod tests {
     }
 
     #[test]
-    fn test_tag_eq_builtin_and_custom_never_true() {
+    fn tag_eq_builtin_and_custom_never_true() {
         let tag1 = Tag::Builtin {
             id: None,
             media_type: MediaType::Image,
@@ -125,7 +125,7 @@ mod tests {
     }
 
     #[test]
-    fn test_tag_display_builtin_uses_media_type_display() {
+    fn tag_display_builtin_uses_media_type_display() {
         let tag = Tag::Builtin {
             id: None,
             media_type: MediaType::Image,
@@ -134,7 +134,7 @@ mod tests {
     }
 
     #[test]
-    fn test_tag_display_custom_uses_name() {
+    fn tag_display_custom_uses_name() {
         let tag = Tag::Custom {
             id: None,
             name: "Funny".into(),

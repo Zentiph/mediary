@@ -329,7 +329,7 @@ mod tests {
     }
 
     #[test]
-    fn test_connect_at_enables_foreign_keys() {
+    fn connect_at_enables_foreign_keys() {
         let (_tmp, conn) = temp_db_conn();
         let fk_enabled: i64 = conn
             .query_row("PRAGMA foreign_keys", [], |row| row.get(0))
@@ -338,14 +338,14 @@ mod tests {
     }
 
     #[test]
-    fn test_create_schema_is_idempotent() {
+    fn create_schema_is_idempotent() {
         let (_tmp, conn) = temp_db_conn();
         create_schema(&conn).unwrap();
         create_schema(&conn).unwrap();
     }
 
     #[test]
-    fn test_foreign_keys_are_enforced() {
+    fn foreign_keys_are_enforced() {
         let (_tmp, conn) = temp_db_conn();
         create_schema(&conn).unwrap();
         let result = conn.execute(
@@ -356,7 +356,7 @@ mod tests {
     }
 
     #[test]
-    fn test_builtin_tags_seeded_without_duplicates() {
+    fn builtin_tags_seeded_without_duplicates() {
         let (_tmp, conn) = temp_db_conn();
         create_schema(&conn).unwrap();
         ensure_builtin_tags_exist_in_db(&conn).unwrap();
@@ -373,7 +373,7 @@ mod tests {
     }
 
     #[test]
-    fn test_init_db_at_runs_full_pipeline() {
+    fn init_db_at_runs_full_pipeline() {
         let tmp = NamedTempFile::new().unwrap();
         let conn = init_db_at(tmp.path()).unwrap();
 
@@ -384,7 +384,7 @@ mod tests {
     }
 
     #[test]
-    fn test_insert_media_inserts_correctly() {
+    fn insert_media_inserts_correctly() {
         let (_tmp, conn) = temp_db_conn();
         create_schema(&conn).unwrap();
         let media = Media {
@@ -399,7 +399,7 @@ mod tests {
     }
 
     #[test]
-    fn test_insert_media_errors_on_duplicate() {
+    fn insert_media_errors_on_duplicate() {
         let (_tmp, conn) = temp_db_conn();
         create_schema(&conn).unwrap();
         let media = Media {
@@ -415,7 +415,7 @@ mod tests {
     }
 
     #[test]
-    fn test_insert_get_media_round_trip() {
+    fn insert_get_media_round_trip() {
         let (_tmp, conn) = temp_db_conn();
         create_schema(&conn).unwrap();
         let media = Media {
@@ -440,7 +440,7 @@ mod tests {
     }
 
     #[test]
-    fn test_get_media_returns_none_on_nonexistent_path() {
+    fn get_media_returns_none_on_nonexistent_path() {
         let (_tmp, conn) = temp_db_conn();
         create_schema(&conn).unwrap();
         let result = get_media_from_path(&conn, "nonexistent").unwrap();
