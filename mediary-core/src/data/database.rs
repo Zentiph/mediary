@@ -33,7 +33,7 @@ use crate::{
             system_time_to_unix_timestamp, unix_timestamp_to_system_time,
         },
     },
-    types::{Media, MediaType},
+    types::{Media, MediaType, Tag},
 };
 
 const DB_NAME: &str = "mediary.db";
@@ -311,6 +311,48 @@ pub fn get_media_from_path(
         Some(Ok(media)) => Ok(Some(media)),
         Some(Err(e)) => Err(SqliteSelectError::SqliteError(e)),
         None => Ok(None),
+    }
+}
+
+/// Insert a custom tag into the database.
+///
+/// # Arguments
+///
+/// - `conn` (`&Connection`) - The DB connection.
+/// - `tag` (`&Tag`) - The tag.
+///
+/// # Returns
+///
+/// - `Result<i64, SqliteInsertError>` - The row ID of the inserted item.
+///
+/// # Errors
+///
+/// If the tag already exists.
+/// If the insert fails.
+pub fn insert_custom_tag(
+    conn: &Connection,
+    tag: &Tag,
+) -> Result<i64, SqliteInsertError> {
+    match tag {
+        Tag::Builtin { .. } => Err(SqliteInsertError::AlreadyExists),
+        Tag::Custom { name, .. } => {
+            let res = conn.execute(
+                r#"
+                INSERT INTO tags (name)
+                VALUES (?1)
+                "#,
+                params![name],
+            );
+            match res {
+                Ok(_) => Ok(conn.last_insert_rowid()),
+                Err(rusqlite::Error::SqliteFailure(err, _))
+                    if err.code == rusqlite::ErrorCode::ConstraintViolation =>
+                {
+                    Err(SqliteInsertError::AlreadyExists)
+                }
+                Err(e) => Err(SqliteInsertError::SqliteError(e)),
+            }
+        }
     }
 }
 
