@@ -152,6 +152,37 @@ fn ensure_builtin_tags_exist_in_db(conn: &Connection) -> rusqlite::Result<()> {
     Ok(())
 }
 
+/// Get the ID of a builtin tag.
+///
+/// # Arguments
+///
+/// - `conn` (`&Connection`) - The DB connection.
+/// - `media_type` (`MediaType`) - The media type.
+///
+/// # Returns
+///
+/// - `rusqlite::Result<i64>` - The tag ID.
+///
+/// # Errors
+///
+/// If the tag does not exist.
+/// If the select fails.
+fn get_builtin_tag_id(
+    conn: &Connection,
+    media_type: MediaType,
+) -> rusqlite::Result<i64> {
+    let res = conn.query_row(
+        r#"
+        SELECT id
+        FROM tags
+        WHERE name = ?1
+        "#,
+        params![media_type.to_string()],
+        |row| row.get(0),
+    )?;
+    Ok(res)
+}
+
 /// Initialize the database at the given path.
 ///
 /// # Arguments
