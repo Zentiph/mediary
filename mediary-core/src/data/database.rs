@@ -71,7 +71,7 @@ impl Error for SqliteInsertError {}
 ///
 /// # Variants
 ///
-/// - `DoesNotExist` - The item does not exist.
+/// - `NotFound` - The item does not exist.
 /// - `SqliteError(rusqlite::Error)` - An SQL error.
 /// - `Other(Box<dyn Error>)` - Any other error.
 #[derive(Debug)]
@@ -88,6 +88,30 @@ impl Display for SqliteSelectError {
     }
 }
 impl Error for SqliteSelectError {}
+
+/// An error that may occur on SQL delete instructions.
+///
+/// # Variants
+///
+/// - `NotFound` - The item does not exist.
+/// - `SqliteError(rusqlite::Error)` - An SQL error.
+/// - `Other(Box<dyn Error + Send + Sync>)` - Any other error.
+#[derive(Debug)]
+pub enum SqliteDeleteError {
+    NotFound,
+    SqliteError(rusqlite::Error),
+    Other(Box<dyn Error + Send + Sync>),
+}
+impl Display for SqliteDeleteError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            SqliteDeleteError::NotFound => write!(f, "Item does not exist"),
+            SqliteDeleteError::SqliteError(e) => write!(f, "{e}"),
+            SqliteDeleteError::Other(e) => write!(f, "{e}"),
+        }
+    }
+}
+impl Error for SqliteDeleteError {}
 
 /// Connect to the database at the given path.
 ///
@@ -150,6 +174,37 @@ fn ensure_builtin_tags_exist_in_db(conn: &Connection) -> rusqlite::Result<()> {
         )?;
     }
     Ok(())
+}
+
+/// Get the ID of a builtin tag.
+///
+/// # Arguments
+///
+/// - `conn` (`&Connection`) - The DB connection.
+/// - `media_type` (`MediaType`) - The media type.
+///
+/// # Returns
+///
+/// - `rusqlite::Result<i64>` - The tag ID.
+///
+/// # Errors
+///
+/// If the tag does not exist.
+/// If the select fails.
+fn get_builtin_tag_id(
+    conn: &Connection,
+    media_type: MediaType,
+) -> rusqlite::Result<i64> {
+    let res = conn.query_row(
+        r#"
+        SELECT id
+        FROM tags
+        WHERE name = ?1
+        "#,
+        params![media_type.to_string()],
+        |row| row.get(0),
+    )?;
+    Ok(res)
 }
 
 /// Initialize the database at the given path.
@@ -311,6 +366,34 @@ pub fn get_media_from_path(
         Some(Ok(media)) => Ok(Some(media)),
         Some(Err(e)) => Err(SqliteSelectError::SqliteError(e)),
         None => Ok(None),
+    }
+}
+
+/// Delete a media item from a file path.
+///
+/// # Arguments
+///
+/// - `conn` (`&Connection`) - The DB connection.
+/// - `path` (`&str`) - The path to the media.
+///
+/// # Returns
+///
+/// - `Result<(), SqliteDeleteError>` - The result of the operation.
+pub fn delete_media_from_path(
+    conn: &Connection,
+    path: &str,
+) -> Result<(), SqliteDeleteError> {
+    let res = conn.execute(
+        r#"
+        DELETE FROM media
+        WHERE path = ?1
+        "#,
+        params![path],
+    );
+    match res {
+        Ok(0) => Err(SqliteDeleteError::NotFound),
+        Ok(_) => Ok(()),
+        Err(e) => Err(SqliteDeleteError::SqliteError(e)),
     }
 }
 
@@ -486,6 +569,32 @@ mod tests {
         let (_tmp, conn) = temp_db_conn();
         create_schema(&conn).unwrap();
         let result = get_media_from_path(&conn, "nonexistent").unwrap();
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn delete_media_from_path_errors_on_nonexistent_path() {
+        let (_tmp, conn) = temp_db_conn();
+        create_schema(&conn).unwrap();
+        let result = delete_media_from_path(&conn, "nonexistent");
+        assert!(matches!(result, Err(SqliteDeleteError::NotFound)));
+    }
+
+    #[test]
+    fn delete_media_from_path_deletes_correctly() {
+        let (_tmp, conn) = temp_db_conn();
+        create_schema(&conn).unwrap();
+        let media = Media {
+            id: None,
+            path: PathBuf::from("test"),
+            media_type: MediaType::Image,
+            size_bytes: 0,
+            added_at: SystemTime::now(),
+        };
+        insert_media(&conn, &media).unwrap();
+        delete_media_from_path(&conn, &media.path.to_string_lossy()).unwrap();
+        let result =
+            get_media_from_path(&conn, &media.path.to_string_lossy()).unwrap();
         assert!(result.is_none());
     }
 }
