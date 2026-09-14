@@ -379,6 +379,11 @@ pub fn get_media_from_path(
 /// # Returns
 ///
 /// - `Result<(), SqliteDeleteError>` - The result of the operation.
+///
+/// # Errors
+///
+/// If the media already did not exist.
+/// If the delete fails.
 pub fn delete_media_from_path(
     conn: &Connection,
     path: &str,
