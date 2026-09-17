@@ -69,7 +69,62 @@ mod tests {
     use super::*;
 
     #[test]
-    fn sys_time_to_unix_roundtrip_preserves_seconds() {
+    fn system_time_to_unix_timestamp_using_now_is_greater_than_zero() {
+        // setup
+        let sys_time = SystemTime::now();
+
+        // invoke
+        let unix_time = system_time_to_unix_timestamp(sys_time).unwrap();
+
+        // check
+        assert!(unix_time > 0);
+    }
+
+    #[test]
+    fn system_time_to_unix_timestamp_converts_epoch_to_zero() {
+        // setup
+        let sys_time = SystemTime::UNIX_EPOCH;
+
+        // invoke
+        let unix_time = system_time_to_unix_timestamp(sys_time).unwrap();
+
+        // check
+        assert_eq!(unix_time, 0);
+    }
+
+    #[test]
+    fn unix_timestamp_to_system_time_using_now_is_ok() {
+        // setup
+        let sys_time = SystemTime::now();
+
+        // invoke
+        let unix_time = system_time_to_unix_timestamp(sys_time).unwrap();
+        let result = unix_timestamp_to_system_time(unix_time).unwrap();
+
+        // check
+        assert_eq!(result, sys_time);
+    }
+
+    #[test]
+    fn unix_timestamp_to_system_time_converts_zero_to_epoch() {
+        // invoke
+        let result = unix_timestamp_to_system_time(0);
+
+        // check
+        assert_eq!(result.unwrap(), SystemTime::UNIX_EPOCH);
+    }
+
+    #[test]
+    fn unix_timestamp_to_system_time_errors_on_negative_timestamp() {
+        // invoke
+        let result = unix_timestamp_to_system_time(-1);
+
+        // check
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn system_time_to_unix_timestamp_roundtrip_preserves_seconds() {
         // setup
         let sys_time = SystemTime::now();
 
@@ -82,26 +137,5 @@ mod tests {
 
         // check
         assert_eq!(unix_time, unix_time_from_sys);
-    }
-
-    #[test]
-    fn sys_time_to_unix_epoch_converts_to_zero() {
-        // setup
-        let sys_time = SystemTime::UNIX_EPOCH;
-
-        // invoke
-        let unix_time = system_time_to_unix_timestamp(sys_time).unwrap();
-
-        // check
-        assert_eq!(unix_time, 0);
-    }
-
-    #[test]
-    fn unix_to_sys_time_errors_on_invalid_timestamp() {
-        // invoke
-        let result = unix_timestamp_to_system_time(-1);
-
-        // check
-        assert!(result.is_err());
     }
 }
