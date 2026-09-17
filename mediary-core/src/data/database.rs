@@ -429,14 +429,7 @@ pub fn insert_custom_tag(
 /// # Errors
 ///
 /// If the tag does not exist.
-///
-/// # Examples
-///
-/// ```
-/// use crate::...;
-///
-/// let _ = get_tag_from_name();
-/// ```
+/// If the select fails.
 pub fn get_tag_from_name(
     conn: &Connection,
     name: &str,
@@ -473,6 +466,21 @@ pub fn get_tag_from_name(
     }
 }
 
+/// Delete a tag from its name.
+///
+/// # Arguments
+///
+/// - `conn` (`&Connection`) - The DB connection.
+/// - `name` (`&str`) - The name of the tag.
+///
+/// # Returns
+///
+/// - `Result<(), SqliteDeleteError>` - The result of the operation.
+///
+/// # Errors
+///
+/// If the tag does not exist.
+/// If the delete fails.
 pub fn delete_tag_from_name(
     conn: &Connection,
     name: &str,
