@@ -24,7 +24,7 @@ use std::{
     str::FromStr,
 };
 
-use rusqlite::{Connection, params};
+use rusqlite::{Connection, Row, params};
 use strum::IntoEnumIterator;
 
 use crate::{
@@ -41,6 +41,8 @@ const DB_NAME: &str = "mediary.db";
 const DB_SCHEMA: &str = include_str!("schema.sql");
 
 // TODO: REPLACE ALL PANICS/.expect()s WITH PROPER ERROR PROPAGATION
+// TODO: Look into making media + tag deletions cascade so that tag-media
+//       relations don't point to non-existent items
 
 /// An error that may occur on SQL insert instructions.
 ///
@@ -113,6 +115,22 @@ impl Display for SqliteDeleteError {
     }
 }
 impl Error for SqliteDeleteError {}
+
+/// Get the ID of a tag.
+///
+/// # Arguments
+///
+/// - `tag` (`&Tag`) - The tag.
+///
+/// # Returns
+///
+/// - `Option<i64>` - The tag ID.
+fn get_tag_id(tag: &Tag) -> Option<i64> {
+    match tag {
+        Tag::Builtin { id, .. } => *id,
+        Tag::Custom { id, .. } => *id,
+    }
+}
 
 /// Connect to the database at the given path.
 ///
@@ -198,6 +216,75 @@ fn init_db_at(path: &Path) -> rusqlite::Result<Connection> {
     Ok(conn)
 }
 
+fn read_media_from_row(row: &Row) -> Result<Media, rusqlite::Error> {
+    let id: i64 = row.get(0)?;
+    let path: String = row.get(1)?;
+    let media_type: String = row.get(2)?;
+    let size_bytes: i64 = row.get(3)?;
+    let added_at: i64 = row.get(4)?;
+    Ok(Media {
+        id: Some(id),
+        path: PathBuf::from(path),
+        media_type: MediaType::from_str(&media_type).map_err(|e| {
+            rusqlite::Error::FromSqlConversionFailure(
+                2,
+                rusqlite::types::Type::Text,
+                Box::new(e),
+            )
+        })?,
+        size_bytes: {
+            if size_bytes < 0 {
+                Err(rusqlite::Error::FromSqlConversionFailure(
+                    3,
+                    rusqlite::types::Type::Integer,
+                    "size_bytes cannot be negative".into(),
+                ))
+            } else {
+                Ok(size_bytes as u64)
+            }
+        }?,
+        added_at: unix_timestamp_to_system_time(added_at).map_err(|e| {
+            rusqlite::Error::FromSqlConversionFailure(
+                4,
+                rusqlite::types::Type::Integer,
+                e,
+            )
+        })?,
+    })
+}
+
+/// Read a tag from a row.
+///
+/// # Arguments
+///
+/// - `row` (`&Row`) - The DB row.
+///
+/// # Returns
+///
+/// - `Result<Tag, rusqlite::Error>` - The tag.
+///
+/// # Errors
+///
+/// If the row is not formatted correctly.
+fn read_tag_from_row(row: &Row) -> Result<Tag, rusqlite::Error> {
+    let id: i64 = row.get(0)?;
+    let name: String = row.get(1)?;
+    let is_builtin: bool = row.get(2)?;
+    Ok(match is_builtin {
+        true => Tag::Builtin {
+            id: Some(id),
+            media_type: MediaType::from_str(&name).map_err(|e| {
+                rusqlite::Error::FromSqlConversionFailure(
+                    2,
+                    rusqlite::types::Type::Text,
+                    Box::new(e),
+                )
+            })?,
+        },
+        false => Tag::Custom { id: Some(id), name },
+    })
+}
+
 /// Initialize the database.
 ///
 /// # Returns
@@ -248,6 +335,7 @@ pub fn insert_media(
         "#,
         params![path, media_type, size_bytes, added_at],
     );
+
     match res {
         Ok(_) => Ok(conn.last_insert_rowid()),
         Err(rusqlite::Error::SqliteFailure(err, _))
@@ -278,65 +366,20 @@ pub fn get_media_from_path(
     conn: &Connection,
     path: &str,
 ) -> Result<Option<Media>, SqliteSelectError> {
-    // TODO: simplify to use query_row since paths are unique
-    let mut stmt = conn
-        .prepare(
-            r#"
+    let res = conn.query_row(
+        r#"
             SELECT id, path, media_type, size_bytes, added_at
             FROM media
             WHERE path = ?1
             "#,
-        )
-        .map_err(SqliteSelectError::SqliteError)?;
+        params![path],
+        read_media_from_row,
+    );
 
-    let mut media_iter = stmt
-        .query_map(params![path], |row| {
-            Ok(Media {
-                id: Some(row.get(0)?),
-                path: {
-                    let raw: String = row.get(1)?;
-                    PathBuf::from(raw)
-                },
-                media_type: {
-                    let raw: String = row.get(2)?;
-                    raw.parse::<MediaType>().map_err(|e| {
-                        rusqlite::Error::FromSqlConversionFailure(
-                            2,
-                            rusqlite::types::Type::Text,
-                            Box::new(e),
-                        )
-                    })?
-                },
-                size_bytes: {
-                    let raw: i64 = row.get(3)?;
-                    if raw < 0 {
-                        Err(rusqlite::Error::FromSqlConversionFailure(
-                            3,
-                            rusqlite::types::Type::Integer,
-                            "Size cannot be negative".into(),
-                        ))
-                    } else {
-                        Ok(raw as u64)
-                    }
-                }?,
-                added_at: {
-                    let raw: i64 = row.get(4)?;
-                    unix_timestamp_to_system_time(raw).map_err(|e| {
-                        rusqlite::Error::FromSqlConversionFailure(
-                            4,
-                            rusqlite::types::Type::Integer,
-                            e,
-                        )
-                    })?
-                },
-            })
-        })
-        .map_err(SqliteSelectError::SqliteError)?;
-
-    match media_iter.next() {
-        Some(Ok(media)) => Ok(Some(media)),
-        Some(Err(e)) => Err(SqliteSelectError::SqliteError(e)),
-        None => Ok(None),
+    match res {
+        Ok(media) => Ok(Some(media)),
+        Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
+        Err(e) => Err(SqliteSelectError::SqliteError(e)),
     }
 }
 
@@ -366,6 +409,7 @@ pub fn delete_media_from_path(
         "#,
         params![path],
     );
+
     match res {
         Ok(0) => Err(SqliteDeleteError::NotFound),
         Ok(_) => Ok(()),
@@ -402,6 +446,7 @@ pub fn insert_custom_tag(
                 "#,
                 params![name],
             );
+
             match res {
                 Ok(_) => Ok(conn.last_insert_rowid()),
                 Err(rusqlite::Error::SqliteFailure(err, _))
@@ -436,29 +481,14 @@ pub fn get_tag_from_name(
 ) -> Result<Option<Tag>, SqliteSelectError> {
     let res = conn.query_row(
         r#"
-        SELECT id, name, is_builtin FROM tags
+        SELECT id, name, is_builtin
+        FROM tags
         WHERE name = ?1
         "#,
         params![name],
-        |row| {
-            let id: i64 = row.get(0)?;
-            let name: String = row.get(1)?;
-            let is_builtin: bool = row.get(2)?;
-            Ok(match is_builtin {
-                true => Tag::Builtin {
-                    id: Some(id),
-                    media_type: MediaType::from_str(&name).map_err(|e| {
-                        rusqlite::Error::FromSqlConversionFailure(
-                            2,
-                            rusqlite::types::Type::Text,
-                            Box::new(e),
-                        )
-                    })?,
-                },
-                false => Tag::Custom { id: Some(id), name },
-            })
-        },
+        read_tag_from_row,
     );
+
     match res {
         Ok(tag) => Ok(Some(tag)),
         Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
@@ -486,23 +516,234 @@ pub fn delete_tag_from_name(
     name: &str,
 ) -> Result<(), SqliteDeleteError> {
     if MediaType::iter().any(|mt| mt.to_string() == name) {
-        Err(SqliteDeleteError::Other(
+        return Err(SqliteDeleteError::Other(
             // TODO: maybe make this a bit more semantic, maybe its own error?
             "Cannot delete a builtin tag".into(),
-        ))
-    } else {
-        let res = conn.execute(
-            r#"
+        ));
+    }
+
+    let res = conn.execute(
+        r#"
             DELETE FROM tags
             WHERE name = ?1
             "#,
-            params![name],
-        );
-        match res {
-            Ok(0) => Err(SqliteDeleteError::NotFound),
-            Ok(_) => Ok(()),
-            Err(e) => Err(SqliteDeleteError::SqliteError(e)),
+        params![name],
+    );
+
+    match res {
+        Ok(0) => Err(SqliteDeleteError::NotFound),
+        Ok(_) => Ok(()),
+        Err(e) => Err(SqliteDeleteError::SqliteError(e)),
+    }
+}
+
+/// Tag a media item.
+///
+/// # Arguments
+///
+/// - `conn` (`&Connection`) - The DB connection.
+/// - `media` (`&Media`) - The media to tag.
+/// - `tag` (`&Tag`) - The tag to add.
+///
+/// # Returns
+///
+/// - `Result<i64, SqliteInsertError>` - Describe the return value.
+///
+/// # Errors
+///
+/// Describe possible errors.
+///
+/// # Examples
+///
+/// ```
+/// use crate::...;
+///
+/// let _ = tag_media();
+/// ```
+pub fn tag_media(
+    conn: &Connection,
+    media: &Media,
+    tag: &Tag,
+) -> Result<i64, SqliteInsertError> {
+    let res = conn.execute(
+        r#"
+        INSERT INTO media_tags (media_id, tag_id)
+        VALUES (?1, ?2)
+        "#,
+        params![media.id, get_tag_id(tag).unwrap()],
+    );
+
+    match res {
+        Ok(_) => Ok(conn.last_insert_rowid()),
+        Err(rusqlite::Error::SqliteFailure(err, _))
+            if err.code == rusqlite::ErrorCode::ConstraintViolation =>
+        {
+            Err(SqliteInsertError::AlreadyExists)
         }
+        Err(e) => Err(SqliteInsertError::SqliteError(e)),
+    }
+}
+
+/// Get the tags for a media item.
+///
+/// # Arguments
+///
+/// - `conn` (`&Connection`) - The DB connection.
+/// - `media` (`&Media`) - The media to get tags for.
+///
+/// # Returns
+///
+/// - `Result<Option<Vec<Tag>>, SqliteSelectError>` - The tags for the media.
+///
+/// # Errors
+///
+/// If the select fails.
+pub fn get_tags_for_media(
+    conn: &Connection,
+    media: &Media,
+) -> Result<Option<Vec<Tag>>, SqliteSelectError> {
+    let media_id = match media.id {
+        Some(id) => id,
+        None => return Ok(None),
+    };
+
+    // check if the media exists
+    if !conn
+        .query_row(
+            r#"
+            SELECT EXISTS(
+                SELECT 1
+                FROM media
+                WHERE id = ?1
+            )
+            "#,
+            params![media_id],
+            |row| row.get(0),
+        )
+        .map_err(SqliteSelectError::SqliteError)?
+    {
+        return Ok(None);
+    }
+
+    let mut stmt = conn
+        .prepare(
+            r#"
+        SELECT t.id, t.name, t.is_builtin
+        FROM media_tags mt
+        JOIN tags t ON mt.tag_id = t.id
+        WHERE mt.media_id = ?1
+        "#,
+        )
+        .map_err(SqliteSelectError::SqliteError)?;
+
+    let tags_iter = stmt
+        .query_map(params![media_id], read_tag_from_row)
+        .map_err(SqliteSelectError::SqliteError)?;
+
+    let mut tags = Vec::new();
+    for tag_result in tags_iter {
+        tags.push(tag_result.map_err(SqliteSelectError::SqliteError)?);
+    }
+
+    Ok(Some(tags))
+}
+
+/// Get the media for a tag.
+///
+/// # Arguments
+///
+/// - `conn` (`&Connection`) - The DB connection.
+/// - `tag` (`&Tag`) - The tag to get media for.
+///
+/// # Returns
+///
+/// - `Result<Option<Vec<Media>>, SqliteSelectError>` - The media for the tag.
+///
+/// # Errors
+///
+/// If the select fails.
+pub fn get_media_for_tag(
+    conn: &Connection,
+    tag: &Tag,
+) -> Result<Option<Vec<Media>>, SqliteSelectError> {
+    let tag_id = match get_tag_id(tag) {
+        Some(id) => id,
+        None => return Ok(None),
+    };
+
+    // check if tag exists
+    if !conn
+        .query_row(
+            r#"
+        SELECT EXISTS(
+            SELECT 1
+            FROM tags
+            WHERE id = ?1
+        )
+        "#,
+            params![tag_id],
+            |row| row.get(0),
+        )
+        .map_err(SqliteSelectError::SqliteError)?
+    {
+        return Ok(None);
+    }
+
+    let mut stmt = conn
+        .prepare(
+            r#"
+        SELECT m.id, m.title, m.media_type, m.path, m.created_at, m.updated_at
+        FROM media_tags mt
+        JOIN media m ON mt.media_id = m.id
+        WHERE mt.tag_id = ?1
+        "#,
+        )
+        .map_err(SqliteSelectError::SqliteError)?;
+
+    let media_iter = stmt
+        .query_map(params![tag_id], read_media_from_row)
+        .map_err(SqliteSelectError::SqliteError)?;
+
+    let mut media = Vec::new();
+    for media_result in media_iter {
+        media.push(media_result.map_err(SqliteSelectError::SqliteError)?);
+    }
+
+    Ok(Some(media))
+}
+
+/// Untag a media item.
+///
+/// # Arguments
+///
+/// - `conn` (`&Connection`) - The DB connection.
+/// - `media` (`&Media`) - The media to untag.
+/// - `tag` (`&Tag`) - The tag to remove.
+///
+/// # Returns
+///
+/// - `Result<(), SqliteDeleteError>` - The result of the operation.
+///
+/// # Errors
+///
+/// If the media-tag relationship already did not exist.
+/// If the delete fails.
+pub fn untag_media(
+    conn: &Connection,
+    media: &Media,
+    tag: &Tag,
+) -> Result<(), SqliteDeleteError> {
+    let res = conn.execute(
+        r#"
+        DELETE FROM media_tags
+        WHERE media_id = ?1 AND tag_id = ?2
+        "#,
+        params![media.id, get_tag_id(tag).unwrap()],
+    );
+    match res {
+        Ok(0) => Err(SqliteDeleteError::NotFound),
+        Ok(_) => Ok(()),
+        Err(e) => Err(SqliteDeleteError::SqliteError(e)),
     }
 }
 
@@ -511,13 +752,6 @@ mod tests {
     use super::*;
     use std::time::SystemTime;
     use tempfile::NamedTempFile;
-
-    fn get_tag_id(tag: &Tag) -> Option<i64> {
-        match tag {
-            Tag::Builtin { id, .. } => *id,
-            Tag::Custom { id, .. } => *id,
-        }
-    }
 
     fn get_custom_tag_name(tag: &Tag) -> String {
         match tag {
