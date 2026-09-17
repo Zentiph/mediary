@@ -21,6 +21,7 @@ use std::{
     error::Error,
     fmt::{self, Display, Formatter},
     path::{Path, PathBuf},
+    str::FromStr,
 };
 
 use rusqlite::{Connection, params};
@@ -176,37 +177,6 @@ fn ensure_builtin_tags_exist_in_db(conn: &Connection) -> rusqlite::Result<()> {
     Ok(())
 }
 
-/// Get the ID of a builtin tag.
-///
-/// # Arguments
-///
-/// - `conn` (`&Connection`) - The DB connection.
-/// - `media_type` (`MediaType`) - The media type.
-///
-/// # Returns
-///
-/// - `rusqlite::Result<i64>` - The tag ID.
-///
-/// # Errors
-///
-/// If the tag does not exist.
-/// If the select fails.
-fn get_builtin_tag_id(
-    conn: &Connection,
-    media_type: MediaType,
-) -> rusqlite::Result<i64> {
-    let res = conn.query_row(
-        r#"
-        SELECT id
-        FROM tags
-        WHERE name = ?1
-        "#,
-        params![media_type.to_string()],
-        |row| row.get(0),
-    )?;
-    Ok(res)
-}
-
 /// Initialize the database at the given path.
 ///
 /// # Arguments
@@ -308,6 +278,7 @@ pub fn get_media_from_path(
     conn: &Connection,
     path: &str,
 ) -> Result<Option<Media>, SqliteSelectError> {
+    // TODO: simplify to use query_row since paths are unique
     let mut stmt = conn
         .prepare(
             r#"
@@ -379,6 +350,11 @@ pub fn get_media_from_path(
 /// # Returns
 ///
 /// - `Result<(), SqliteDeleteError>` - The result of the operation.
+///
+/// # Errors
+///
+/// If the media already did not exist.
+/// If the delete fails.
 pub fn delete_media_from_path(
     conn: &Connection,
     path: &str,
@@ -439,11 +415,108 @@ pub fn insert_custom_tag(
     }
 }
 
+/// Get a tag from its name.
+///
+/// # Arguments
+///
+/// - `conn` (`&Connection`) - The DB connection.
+/// - `name` (`&str`) - The name of the tag.
+///
+/// # Returns
+///
+/// - `Result<Tag, SqliteSelectError>` - The tag.
+///
+/// # Errors
+///
+/// If the tag does not exist.
+///
+/// # Examples
+///
+/// ```
+/// use crate::...;
+///
+/// let _ = get_tag_from_name();
+/// ```
+pub fn get_tag_from_name(
+    conn: &Connection,
+    name: &str,
+) -> Result<Option<Tag>, SqliteSelectError> {
+    let res = conn.query_row(
+        r#"
+        SELECT id, name, is_builtin FROM tags
+        WHERE name = ?1
+        "#,
+        params![name],
+        |row| {
+            let id: i64 = row.get(0)?;
+            let name: String = row.get(1)?;
+            let is_builtin: bool = row.get(2)?;
+            Ok(match is_builtin {
+                true => Tag::Builtin {
+                    id: Some(id),
+                    media_type: MediaType::from_str(&name).map_err(|e| {
+                        rusqlite::Error::FromSqlConversionFailure(
+                            2,
+                            rusqlite::types::Type::Text,
+                            Box::new(e),
+                        )
+                    })?,
+                },
+                false => Tag::Custom { id: Some(id), name },
+            })
+        },
+    );
+    match res {
+        Ok(tag) => Ok(Some(tag)),
+        Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
+        Err(e) => Err(SqliteSelectError::SqliteError(e)),
+    }
+}
+
+pub fn delete_tag_from_name(
+    conn: &Connection,
+    name: &str,
+) -> Result<(), SqliteDeleteError> {
+    if MediaType::iter().any(|mt| mt.to_string() == name) {
+        Err(SqliteDeleteError::Other(
+            // TODO: maybe make this a bit more semantic, maybe its own error?
+            "Cannot delete a builtin tag".into(),
+        ))
+    } else {
+        let res = conn.execute(
+            r#"
+            DELETE FROM tags
+            WHERE name = ?1
+            "#,
+            params![name],
+        );
+        match res {
+            Ok(0) => Err(SqliteDeleteError::NotFound),
+            Ok(_) => Ok(()),
+            Err(e) => Err(SqliteDeleteError::SqliteError(e)),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use std::time::SystemTime;
     use tempfile::NamedTempFile;
+
+    fn get_tag_id(tag: &Tag) -> Option<i64> {
+        match tag {
+            Tag::Builtin { id, .. } => *id,
+            Tag::Custom { id, .. } => *id,
+        }
+    }
+
+    fn get_custom_tag_name(tag: &Tag) -> String {
+        match tag {
+            Tag::Builtin { .. } => panic!("Expected custom tag"),
+            Tag::Custom { name, .. } => name.to_string(),
+        }
+    }
 
     // This also returns the temp file to keep it in scope so that
     // it doesn't get deleted after leaving this function's scope
@@ -595,6 +668,78 @@ mod tests {
         delete_media_from_path(&conn, &media.path.to_string_lossy()).unwrap();
         let result =
             get_media_from_path(&conn, &media.path.to_string_lossy()).unwrap();
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn insert_tag_inserts_correctly() {
+        let (_tmp, conn) = temp_db_conn();
+        create_schema(&conn).unwrap();
+        let tag = Tag::Custom {
+            id: None,
+            name: String::from("test"),
+        };
+        let id = insert_custom_tag(&conn, &tag).unwrap();
+        assert!(id > 0);
+    }
+
+    #[test]
+    fn insert_tag_errors_on_duplicate() {
+        let (_tmp, conn) = temp_db_conn();
+        create_schema(&conn).unwrap();
+        let tag = Tag::Custom {
+            id: None,
+            name: String::from("test"),
+        };
+        insert_custom_tag(&conn, &tag).unwrap();
+        let result = insert_custom_tag(&conn, &tag);
+        assert!(matches!(result, Err(SqliteInsertError::AlreadyExists)));
+    }
+
+    #[test]
+    fn insert_get_tag_round_trip() {
+        let (_tmp, conn) = temp_db_conn();
+        create_schema(&conn).unwrap();
+        let tag = Tag::Custom {
+            id: None,
+            name: String::from("test"),
+        };
+        insert_custom_tag(&conn, &tag).unwrap();
+        let result =
+            get_tag_from_name(&conn, &get_custom_tag_name(&tag)).unwrap();
+        let unwrapped = result.unwrap();
+        assert_eq!(tag, unwrapped);
+        assert!(get_tag_id(&unwrapped).is_some());
+    }
+
+    #[test]
+    fn get_tag_returns_none_on_nonexistent_name() {
+        let (_tmp, conn) = temp_db_conn();
+        create_schema(&conn).unwrap();
+        let result = get_tag_from_name(&conn, "nonexistent").unwrap();
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn delete_tag_from_name_errors_on_nonexistent_name() {
+        let (_tmp, conn) = temp_db_conn();
+        create_schema(&conn).unwrap();
+        let result = delete_tag_from_name(&conn, "nonexistent");
+        assert!(matches!(result, Err(SqliteDeleteError::NotFound)));
+    }
+
+    #[test]
+    fn delete_tag_from_name_deletes_correctly() {
+        let (_tmp, conn) = temp_db_conn();
+        create_schema(&conn).unwrap();
+        let tag = Tag::Custom {
+            id: None,
+            name: String::from("test"),
+        };
+        insert_custom_tag(&conn, &tag).unwrap();
+        delete_tag_from_name(&conn, &get_custom_tag_name(&tag)).unwrap();
+        let result =
+            get_tag_from_name(&conn, &get_custom_tag_name(&tag)).unwrap();
         assert!(result.is_none());
     }
 }
