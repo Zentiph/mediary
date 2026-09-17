@@ -57,3 +57,6 @@ pub fn get_app_data_file(file_name: &str) -> io::Result<PathBuf> {
     let app_data_dir = get_app_data_dir()?;
     Ok(app_data_dir.join(file_name))
 }
+
+// No tests for now since these are just simple wrappers.
+// Testing these would just be essentially reimplementing them.
