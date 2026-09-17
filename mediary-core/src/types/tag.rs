@@ -76,6 +76,7 @@ mod tests {
 
     #[test]
     fn tag_eq_builtin_only_checks_media_type() {
+        // setup
         let tag1 = Tag::Builtin {
             id: None,
             media_type: MediaType::Image,
@@ -88,12 +89,15 @@ mod tests {
             id: None,
             media_type: MediaType::Audio,
         };
+
+        // check
         assert_eq!(tag1, tag2);
         assert_ne!(tag1, tag3);
     }
 
     #[test]
     fn tag_eq_custom_only_checks_name() {
+        // setup
         let tag1 = Tag::Custom {
             id: None,
             name: "Funny".into(),
@@ -106,12 +110,15 @@ mod tests {
             id: None,
             name: "Serious".into(),
         };
+
+        // check
         assert_eq!(tag1, tag2);
         assert_ne!(tag1, tag3);
     }
 
     #[test]
     fn tag_eq_builtin_and_custom_never_true() {
+        // setup
         let tag1 = Tag::Builtin {
             id: None,
             media_type: MediaType::Image,
@@ -120,25 +127,33 @@ mod tests {
             id: None,
             name: "Image".into(),
         };
+
+        // check
         assert_ne!(tag1, tag2);
         assert_ne!(tag2, tag1);
     }
 
     #[test]
     fn tag_display_builtin_uses_media_type_display() {
+        // setup
         let tag = Tag::Builtin {
             id: None,
             media_type: MediaType::Image,
         };
+
+        // invoke + check
         assert_eq!(tag.to_string(), "Image");
     }
 
     #[test]
     fn tag_display_custom_uses_name() {
+        // setup
         let tag = Tag::Custom {
             id: None,
             name: "Funny".into(),
         };
+
+        // invoke + check
         assert_eq!(tag.to_string(), "Funny");
     }
 }

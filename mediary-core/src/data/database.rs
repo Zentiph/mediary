@@ -770,38 +770,53 @@ mod tests {
 
     #[test]
     fn connect_at_enables_foreign_keys() {
+        // setup
         let (_tmp, conn) = temp_db_conn();
+
+        // invoke
         let fk_enabled: i64 = conn
             .query_row("PRAGMA foreign_keys", [], |row| row.get(0))
             .unwrap();
+
+        // check
         assert_eq!(fk_enabled, 1);
     }
 
     #[test]
     fn create_schema_is_idempotent() {
+        // setup
         let (_tmp, conn) = temp_db_conn();
+
+        // invoke + check
         create_schema(&conn).unwrap();
         create_schema(&conn).unwrap();
     }
 
     #[test]
     fn foreign_keys_are_enforced() {
+        // setup
         let (_tmp, conn) = temp_db_conn();
+
+        // invoke
         create_schema(&conn).unwrap();
         let result = conn.execute(
             "INSERT INTO media_tags (media_id, tag_id) VALUES (1, 999)",
             [],
         );
+
+        // check
         assert!(result.is_err());
     }
 
     #[test]
     fn builtin_tags_seeded_without_duplicates() {
+        // setup
         let (_tmp, conn) = temp_db_conn();
         create_schema(&conn).unwrap();
-        ensure_builtin_tags_exist_in_db(&conn).unwrap();
-        ensure_builtin_tags_exist_in_db(&conn).unwrap();
 
+        // invoke
+        ensure_builtin_tags_exist_in_db(&conn).unwrap();
+        ensure_builtin_tags_exist_in_db(&conn).unwrap();
         let count: i64 = conn
             .query_row(
                 "SELECT COUNT(*) FROM tags WHERE is_builtin = TRUE",
@@ -809,22 +824,29 @@ mod tests {
                 |row| row.get(0),
             )
             .unwrap();
+
+        // check
         assert_eq!(count, MediaType::iter().count() as i64);
     }
 
     #[test]
     fn init_db_at_runs_full_pipeline() {
+        // setup
         let tmp = NamedTempFile::new().unwrap();
-        let conn = init_db_at(tmp.path()).unwrap();
 
+        // invoke
+        let conn = init_db_at(tmp.path()).unwrap();
         let count: i64 = conn
             .query_row("SELECT COUNT(*) FROM tags", [], |row| row.get(0))
             .unwrap();
+
+        // check
         assert_eq!(count, MediaType::iter().count() as i64);
     }
 
     #[test]
     fn insert_media_inserts_correctly() {
+        // setup
         let (_tmp, conn) = temp_db_conn();
         create_schema(&conn).unwrap();
         let media = Media {
@@ -834,12 +856,17 @@ mod tests {
             size_bytes: 0,
             added_at: SystemTime::now(),
         };
+
+        // invoke
         let id = insert_media(&conn, &media).unwrap();
+
+        // check
         assert!(id > 0);
     }
 
     #[test]
     fn insert_media_errors_on_duplicate() {
+        // setup
         let (_tmp, conn) = temp_db_conn();
         create_schema(&conn).unwrap();
         let media = Media {
@@ -849,13 +876,18 @@ mod tests {
             size_bytes: 0,
             added_at: SystemTime::now(),
         };
+
+        // invoke
         insert_media(&conn, &media).unwrap();
         let result = insert_media(&conn, &media);
+
+        // check
         assert!(matches!(result, Err(SqliteInsertError::AlreadyExists)));
     }
 
     #[test]
     fn insert_get_media_round_trip() {
+        // setup
         let (_tmp, conn) = temp_db_conn();
         create_schema(&conn).unwrap();
         let media = Media {
@@ -865,10 +897,14 @@ mod tests {
             size_bytes: 0,
             added_at: SystemTime::now(),
         };
+
+        // invoke
         insert_media(&conn, &media).unwrap();
         let result =
             get_media_from_path(&conn, &media.path.to_string_lossy()).unwrap();
         let unwrapped = result.unwrap();
+
+        // check
         assert_eq!(media, unwrapped);
         assert!(unwrapped.id.is_some());
         assert_eq!(media.media_type, unwrapped.media_type);
@@ -881,22 +917,33 @@ mod tests {
 
     #[test]
     fn get_media_returns_none_on_nonexistent_path() {
+        // setup
         let (_tmp, conn) = temp_db_conn();
         create_schema(&conn).unwrap();
+
+        // invoke
         let result = get_media_from_path(&conn, "nonexistent").unwrap();
+
+        // check
         assert!(result.is_none());
     }
 
     #[test]
     fn delete_media_from_path_errors_on_nonexistent_path() {
+        // setup
         let (_tmp, conn) = temp_db_conn();
         create_schema(&conn).unwrap();
+
+        // invoke
         let result = delete_media_from_path(&conn, "nonexistent");
+
+        // check
         assert!(matches!(result, Err(SqliteDeleteError::NotFound)));
     }
 
     #[test]
     fn delete_media_from_path_deletes_correctly() {
+        // setup
         let (_tmp, conn) = temp_db_conn();
         create_schema(&conn).unwrap();
         let media = Media {
@@ -906,82 +953,116 @@ mod tests {
             size_bytes: 0,
             added_at: SystemTime::now(),
         };
+
+        // invoke
         insert_media(&conn, &media).unwrap();
         delete_media_from_path(&conn, &media.path.to_string_lossy()).unwrap();
         let result =
             get_media_from_path(&conn, &media.path.to_string_lossy()).unwrap();
+
+        // check
         assert!(result.is_none());
     }
 
     #[test]
     fn insert_tag_inserts_correctly() {
+        // setup
         let (_tmp, conn) = temp_db_conn();
         create_schema(&conn).unwrap();
         let tag = Tag::Custom {
             id: None,
             name: String::from("test"),
         };
+
+        // invoke
         let id = insert_custom_tag(&conn, &tag).unwrap();
+
+        // check
         assert!(id > 0);
     }
 
     #[test]
     fn insert_tag_errors_on_duplicate() {
+        // setup
         let (_tmp, conn) = temp_db_conn();
         create_schema(&conn).unwrap();
         let tag = Tag::Custom {
             id: None,
             name: String::from("test"),
         };
+
+        // invoke
         insert_custom_tag(&conn, &tag).unwrap();
         let result = insert_custom_tag(&conn, &tag);
+
+        // check
         assert!(matches!(result, Err(SqliteInsertError::AlreadyExists)));
     }
 
     #[test]
     fn insert_get_tag_round_trip() {
+        // setup
         let (_tmp, conn) = temp_db_conn();
         create_schema(&conn).unwrap();
         let tag = Tag::Custom {
             id: None,
             name: String::from("test"),
         };
+
+        // invoke
         insert_custom_tag(&conn, &tag).unwrap();
         let result =
             get_tag_from_name(&conn, &get_custom_tag_name(&tag)).unwrap();
         let unwrapped = result.unwrap();
+
+        // check
         assert_eq!(tag, unwrapped);
         assert!(get_tag_id(&unwrapped).is_some());
     }
 
     #[test]
     fn get_tag_returns_none_on_nonexistent_name() {
+        // setup
         let (_tmp, conn) = temp_db_conn();
         create_schema(&conn).unwrap();
+
+        // invoke
         let result = get_tag_from_name(&conn, "nonexistent").unwrap();
+
+        // check
         assert!(result.is_none());
     }
 
     #[test]
     fn delete_tag_from_name_errors_on_nonexistent_name() {
+        // setup
         let (_tmp, conn) = temp_db_conn();
         create_schema(&conn).unwrap();
+
+        // invoke
         let result = delete_tag_from_name(&conn, "nonexistent");
+
+        // check
         assert!(matches!(result, Err(SqliteDeleteError::NotFound)));
     }
 
     #[test]
     fn delete_tag_from_name_deletes_correctly() {
+        // setup
         let (_tmp, conn) = temp_db_conn();
         create_schema(&conn).unwrap();
         let tag = Tag::Custom {
             id: None,
             name: String::from("test"),
         };
+
+        // invoke
         insert_custom_tag(&conn, &tag).unwrap();
         delete_tag_from_name(&conn, &get_custom_tag_name(&tag)).unwrap();
         let result =
             get_tag_from_name(&conn, &get_custom_tag_name(&tag)).unwrap();
+
+        // check
         assert!(result.is_none());
     }
 }

@@ -70,25 +70,38 @@ mod tests {
 
     #[test]
     fn sys_time_to_unix_roundtrip_preserves_seconds() {
+        // setup
         let sys_time = SystemTime::now();
+
+        // invoke
         let unix_time = system_time_to_unix_timestamp(sys_time).unwrap();
         let sys_time_from_unix =
             unix_timestamp_to_system_time(unix_time).unwrap();
         let unix_time_from_sys =
             system_time_to_unix_timestamp(sys_time_from_unix).unwrap();
+
+        // check
         assert_eq!(unix_time, unix_time_from_sys);
     }
 
     #[test]
     fn sys_time_to_unix_epoch_converts_to_zero() {
+        // setup
         let sys_time = SystemTime::UNIX_EPOCH;
+
+        // invoke
         let unix_time = system_time_to_unix_timestamp(sys_time).unwrap();
+
+        // check
         assert_eq!(unix_time, 0);
     }
 
     #[test]
     fn unix_to_sys_time_errors_on_invalid_timestamp() {
+        // invoke
         let result = unix_timestamp_to_system_time(-1);
+
+        // check
         assert!(result.is_err());
     }
 }
