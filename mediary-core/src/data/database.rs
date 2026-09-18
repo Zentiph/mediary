@@ -41,9 +41,6 @@ use crate::{
 const DB_NAME: &str = "mediary.db";
 const DB_SCHEMA: &str = include_str!("schema.sql");
 
-// TODO: REPLACE ALL PANICS/.expect()s WITH PROPER ERROR PROPAGATION
-// TODO: Look into making media + tag deletions cascade so that tag-media
-//       relations don't point to non-existent items
 // TODO: See if it's worth it to heavily modularize this; there are many
 //       functions that share similar code but it's mostly just between 2
 //       functions
@@ -1276,6 +1273,32 @@ mod tests {
     }
 
     #[test]
+    fn delete_media_cascades_to_media_tags() {
+        // setup
+        let (_tmp, conn) = temp_db_init();
+        let media = Media {
+            id: None,
+            path: "path".into(),
+            media_type: MediaType::Image,
+            size_bytes: 0,
+            added_at: SystemTime::now(),
+        };
+        let media = insert_media(&conn, &media).unwrap();
+        let tag = Tag::Custom {
+            id: None,
+            name: "tag".into(),
+        };
+        let tag = insert_tag(&conn, &tag).unwrap();
+        tag_media(&conn, &media, &tag).unwrap();
+
+        // invoke
+        delete_media_from_id(&conn, media.id.unwrap()).unwrap();
+
+        // check
+        assert!(get_media_for_tag(&conn, &tag).unwrap().unwrap().is_empty());
+    }
+
+    #[test]
     fn insert_tag_inserts_correctly() {
         // setup
         let (_tmp, conn) = temp_db_init();
@@ -1424,6 +1447,32 @@ mod tests {
             delete_tag_from_name(&conn, "tag").unwrap_err(),
             SqliteDeleteError::NotFound
         ));
+    }
+
+    #[test]
+    fn delete_tag_cascades_to_media_tags() {
+        // setup
+        let (_tmp, conn) = temp_db_init();
+        let media = Media {
+            id: None,
+            path: "path".into(),
+            media_type: MediaType::Image,
+            size_bytes: 0,
+            added_at: SystemTime::now(),
+        };
+        let media = insert_media(&conn, &media).unwrap();
+        let tag = Tag::Custom {
+            id: None,
+            name: "tag".into(),
+        };
+        let tag = insert_tag(&conn, &tag).unwrap();
+        tag_media(&conn, &media, &tag).unwrap();
+
+        // invoke
+        delete_tag_from_id(&conn, get_tag_id(&tag).unwrap()).unwrap();
+
+        // check
+        assert!(get_media_for_tag(&conn, &tag).unwrap().is_none());
     }
 
     #[test]
