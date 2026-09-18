@@ -1,7 +1,6 @@
-//! # mediary-core
+//! # scanner
 //!
-//! The core library of mediary, an efficient media-browsing application.
-//! This lib should be used for both the CLI and GUI applications of mediary.
+//! A module containing mediary's file-scanning functionality.
 //!
 //! Copyright (C) 2026  Gavin Borne
 //!
@@ -17,10 +16,3 @@
 //!
 //! You should have received a copy of the GNU General Public License
 //! along with this program.  If not, see <https://www.gnu.org/licenses/>.
-
-pub mod data;
-pub mod scanner;
-pub mod types;
-
-#[cfg(test)]
-mod tests {}
