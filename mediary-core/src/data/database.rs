@@ -20,6 +20,7 @@
 use std::{
     error::Error,
     fmt::{self, Display, Formatter},
+    io,
     path::{Path, PathBuf},
     str::FromStr,
 };
@@ -46,6 +47,29 @@ const DB_SCHEMA: &str = include_str!("schema.sql");
 // TODO: See if it's worth it to heavily modularize this; there are many
 //       functions that share similar code but it's mostly just between 2
 //       functions
+
+/// An error that may occur when initializing the DB.
+///
+/// # Variants
+///
+/// - `AppDataDirectoryNotResolved(io::Error)` - The app data directory could not be resolved.
+/// - `Database(rusqlite::Error)` - The database could not be initialized due to an SQL error.
+#[derive(Debug)]
+pub enum DatabaseInitError {
+    AppDataDirectoryNotResolved(io::Error),
+    Database(rusqlite::Error),
+}
+impl Display for DatabaseInitError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            DatabaseInitError::AppDataDirectoryNotResolved(e) => {
+                write!(f, "{e}")
+            }
+            DatabaseInitError::Database(e) => write!(f, "{e}"),
+        }
+    }
+}
+impl Error for DatabaseInitError {}
 
 /// An error that may occur on SQL insert instructions.
 ///
@@ -376,17 +400,16 @@ fn read_tag_from_row(row: &Row) -> Result<Tag, rusqlite::Error> {
 ///
 /// # Returns
 ///
-/// - `rusqlite::Result<Connection>` - The result DB connection.
+/// - `Result<Connection, DatabaseInitError>` - The result DB connection.
 ///
 /// # Errors
 ///
 /// If the DB connection fails.
 /// If the schema fails to write to the DB.
-pub fn init_db() -> rusqlite::Result<Connection> {
-    init_db_at(
-        &get_app_data_file(DB_NAME)
-            .expect("Failed to write to the app data directory."),
-    )
+pub fn init_db() -> Result<Connection, DatabaseInitError> {
+    let path = get_app_data_file(DB_NAME)
+        .map_err(DatabaseInitError::AppDataDirectoryNotResolved)?;
+    init_db_at(&path).map_err(DatabaseInitError::Database)
 }
 
 /// Insert a media item into the database.
