@@ -344,6 +344,29 @@ fn item_exists(
     conn.query_row(&query, params![id], |row| row.get(0))
 }
 
+/// Collect the database row values from an iterator.
+///
+/// # Arguments
+///
+/// - `iter` (`impl Iterator<Item = Result<T, rusqlite`) - The iterator.
+///
+/// # Returns
+///
+/// - `Result<Vec<T>, SqliteSelectError>` - The collected rows.
+///
+/// # Errors
+///
+/// If an error occurs when converting the rows into items.
+fn collect_rows<T>(
+    iter: impl Iterator<Item = Result<T, rusqlite::Error>>,
+) -> Result<Vec<T>, SqliteSelectError> {
+    let mut out = Vec::new();
+    for row in iter {
+        out.push(row?);
+    }
+    Ok(out)
+}
+
 /// Query a row that may or may not exist.
 ///
 /// # Arguments
@@ -930,13 +953,7 @@ pub fn get_tags_for_media(
     )?;
 
     let tags_iter = stmt.query_map(params![media_id], read_tag_from_row)?;
-
-    let mut tags = Vec::new();
-    for tag_result in tags_iter {
-        tags.push(tag_result?);
-    }
-
-    Ok(Some(tags))
+    Ok(Some(collect_rows(tags_iter)?))
 }
 
 /// Get the media for a tag.
@@ -977,13 +994,7 @@ pub fn get_media_for_tag(
     )?;
 
     let media_iter = stmt.query_map(params![tag_id], read_media_from_row)?;
-
-    let mut media = Vec::new();
-    for media_result in media_iter {
-        media.push(media_result?);
-    }
-
-    Ok(Some(media))
+    Ok(Some(collect_rows(media_iter)?))
 }
 
 /// Untag a media item.
