@@ -41,10 +41,6 @@ use crate::{
 const DB_NAME: &str = "mediary.db";
 const DB_SCHEMA: &str = include_str!("schema.sql");
 
-// TODO: See if it's worth it to heavily modularize this; there are many
-//       functions that share similar code but it's mostly just between 2
-//       functions
-
 /// An error that may occur when initializing the DB.
 ///
 /// # Variants
@@ -331,6 +327,35 @@ fn item_exists(
     conn.query_row(&query, params![id], |row| row.get(0))
 }
 
+/// Execute a delete query.
+///
+/// # Arguments
+///
+/// - `conn` (`&Connection`) - The DB connection.
+/// - `sql` (`&str`) - The SQL query.
+/// - `params` (`impl rusqlite`) - The parameters.
+///
+/// # Returns
+///
+/// - `Result<(), SqliteDeleteError>` - The result.
+///
+/// # Errors
+///
+/// If the item already did not exist.
+/// If the query fails.
+fn execute_delete(
+    conn: &Connection,
+    sql: &str,
+    params: impl rusqlite::Params,
+) -> Result<(), SqliteDeleteError> {
+    let rows_affected = conn.execute(sql, params)?;
+    if rows_affected == 0 {
+        Err(SqliteDeleteError::NotFound)
+    } else {
+        Ok(())
+    }
+}
+
 /// Read a media item from a row.
 ///
 /// # Arguments
@@ -568,19 +593,14 @@ pub fn delete_media_from_id(
     conn: &Connection,
     id: i64,
 ) -> Result<(), SqliteDeleteError> {
-    let res = conn.execute(
+    execute_delete(
+        conn,
         r#"
         DELETE FROM media
         WHERE id = ?1
         "#,
         params![id],
-    );
-
-    match res {
-        Ok(0) => Err(SqliteDeleteError::NotFound),
-        Ok(_) => Ok(()),
-        Err(e) => Err(SqliteDeleteError::SqliteError(e)),
-    }
+    )
 }
 
 /// Delete a media item from a file path.
@@ -602,19 +622,14 @@ pub fn delete_media_from_path(
     conn: &Connection,
     path: &str,
 ) -> Result<(), SqliteDeleteError> {
-    let res = conn.execute(
+    execute_delete(
+        conn,
         r#"
         DELETE FROM media
         WHERE path = ?1
         "#,
         params![path],
-    );
-
-    match res {
-        Ok(0) => Err(SqliteDeleteError::NotFound),
-        Ok(_) => Ok(()),
-        Err(e) => Err(SqliteDeleteError::SqliteError(e)),
-    }
+    )
 }
 
 /// Insert a custom tag into the database.
@@ -759,19 +774,14 @@ pub fn delete_tag_from_id(
         return Err(SqliteDeleteError::Disallowed);
     }
 
-    let res = conn.execute(
+    execute_delete(
+        conn,
         r#"
         DELETE FROM tags
         WHERE id = ?1
         "#,
         params![id],
-    );
-
-    match res {
-        Ok(0) => Err(SqliteDeleteError::NotFound),
-        Ok(_) => Ok(()),
-        Err(e) => Err(SqliteDeleteError::SqliteError(e)),
-    }
+    )
 }
 
 /// Delete a tag from its name.
@@ -797,19 +807,14 @@ pub fn delete_tag_from_name(
         return Err(SqliteDeleteError::Disallowed);
     }
 
-    let res = conn.execute(
+    execute_delete(
+        conn,
         r#"
             DELETE FROM tags
             WHERE name = ?1
             "#,
         params![name],
-    );
-
-    match res {
-        Ok(0) => Err(SqliteDeleteError::NotFound),
-        Ok(_) => Ok(()),
-        Err(e) => Err(SqliteDeleteError::SqliteError(e)),
-    }
+    )
 }
 
 /// Tag a media item.
@@ -982,19 +987,14 @@ pub fn untag_media(
     media: &Media,
     tag: &Tag,
 ) -> Result<(), SqliteDeleteError> {
-    let res = conn.execute(
+    execute_delete(
+        conn,
         r#"
         DELETE FROM media_tags
         WHERE media_id = ?1 AND tag_id = ?2
         "#,
         params![media.id, get_tag_id(tag).unwrap()],
-    );
-
-    match res {
-        Ok(0) => Err(SqliteDeleteError::NotFound),
-        Ok(_) => Ok(()),
-        Err(e) => Err(SqliteDeleteError::SqliteError(e)),
-    }
+    )
 }
 
 #[cfg(test)]
