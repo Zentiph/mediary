@@ -16,6 +16,6 @@ CREATE TABLE IF NOT EXISTS media_tags (
     media_id INTEGER NOT NULL,
     tag_id INTEGER NOT NULL,
     PRIMARY KEY (media_id, tag_id),
-    FOREIGN KEY (media_id) REFERENCES media (id),
-    FOREIGN KEY (tag_id) REFERENCES tags (id)
+    FOREIGN KEY (media_id) REFERENCES media (id) ON DELETE CASCADE,
+    FOREIGN KEY (tag_id) REFERENCES tags (id) ON DELETE CASCADE
 );

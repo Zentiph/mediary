@@ -18,4 +18,5 @@
 //! along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 pub mod app_data;
+pub mod conversion;
 pub mod database;
