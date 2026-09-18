@@ -1789,6 +1789,7 @@ dependencies = [
  "directories",
  "rusqlite",
  "strum",
+ "tempfile",
 ]
 
 [[package]]

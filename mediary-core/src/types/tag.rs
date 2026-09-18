@@ -17,7 +17,7 @@
 //! You should have received a copy of the GNU General Public License
 //! along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-use std::fmt::Display;
+use std::fmt::{Display, Formatter};
 
 use crate::types::media_type::MediaType;
 
@@ -62,7 +62,7 @@ impl PartialEq for Tag {
 impl Eq for Tag {}
 
 impl Display for Tag {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
             Tag::Builtin { media_type: mt, .. } => write!(f, "{}", mt),
             Tag::Custom { name, .. } => write!(f, "{}", name),
@@ -75,7 +75,8 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_tag_eq_builtin_only_checks_media_type() {
+    fn tag_eq_builtin_only_checks_media_type() {
+        // setup
         let tag1 = Tag::Builtin {
             id: None,
             media_type: MediaType::Image,
@@ -88,12 +89,15 @@ mod tests {
             id: None,
             media_type: MediaType::Audio,
         };
+
+        // check
         assert_eq!(tag1, tag2);
         assert_ne!(tag1, tag3);
     }
 
     #[test]
-    fn test_tag_eq_custom_only_checks_name() {
+    fn tag_eq_custom_only_checks_name() {
+        // setup
         let tag1 = Tag::Custom {
             id: None,
             name: "Funny".into(),
@@ -106,12 +110,15 @@ mod tests {
             id: None,
             name: "Serious".into(),
         };
+
+        // check
         assert_eq!(tag1, tag2);
         assert_ne!(tag1, tag3);
     }
 
     #[test]
-    fn test_tag_eq_builtin_and_custom_never_true() {
+    fn tag_eq_builtin_and_custom_never_true() {
+        // setup
         let tag1 = Tag::Builtin {
             id: None,
             media_type: MediaType::Image,
@@ -120,25 +127,33 @@ mod tests {
             id: None,
             name: "Image".into(),
         };
+
+        // check
         assert_ne!(tag1, tag2);
         assert_ne!(tag2, tag1);
     }
 
     #[test]
-    fn test_tag_display_builtin_uses_media_type_display() {
+    fn tag_display_builtin_uses_media_type_display() {
+        // setup
         let tag = Tag::Builtin {
             id: None,
             media_type: MediaType::Image,
         };
+
+        // invoke + check
         assert_eq!(tag.to_string(), "Image");
     }
 
     #[test]
-    fn test_tag_display_custom_uses_name() {
+    fn tag_display_custom_uses_name() {
+        // setup
         let tag = Tag::Custom {
             id: None,
             name: "Funny".into(),
         };
+
+        // invoke + check
         assert_eq!(tag.to_string(), "Funny");
     }
 }

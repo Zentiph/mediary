@@ -61,12 +61,12 @@ pub enum MediaType {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
     use std::str::FromStr;
 
-    use super::*;
-
     #[test]
-    fn test_media_type_display() {
+    fn media_type_display() {
+        // invoke + check
         assert_eq!(MediaType::Image.to_string(), "Image");
         assert_eq!(MediaType::Video.to_string(), "Video");
         assert_eq!(MediaType::Audio.to_string(), "Audio");
@@ -75,22 +75,20 @@ mod tests {
     }
 
     #[test]
-    fn test_media_type_from_str_case_insensitive() {
+    fn media_type_from_str_case_insensitive() {
+        // invoke + check
         assert_eq!(MediaType::from_str("image").unwrap(), MediaType::Image);
         assert_eq!(MediaType::from_str("IMAGE").unwrap(), MediaType::Image);
         assert_eq!(MediaType::from_str("Image").unwrap(), MediaType::Image);
         assert_eq!(MediaType::from_str("iMaGe").unwrap(), MediaType::Image);
-
         assert_eq!(MediaType::from_str("video").unwrap(), MediaType::Video);
         assert_eq!(MediaType::from_str("VIDEO").unwrap(), MediaType::Video);
         assert_eq!(MediaType::from_str("Video").unwrap(), MediaType::Video);
         assert_eq!(MediaType::from_str("vIdEo").unwrap(), MediaType::Video);
-
         assert_eq!(MediaType::from_str("audio").unwrap(), MediaType::Audio);
         assert_eq!(MediaType::from_str("AUDIO").unwrap(), MediaType::Audio);
         assert_eq!(MediaType::from_str("Audio").unwrap(), MediaType::Audio);
         assert_eq!(MediaType::from_str("aUdIo").unwrap(), MediaType::Audio);
-
         assert_eq!(
             MediaType::from_str("document").unwrap(),
             MediaType::Document
@@ -107,7 +105,6 @@ mod tests {
             MediaType::from_str("dOcUmEnT").unwrap(),
             MediaType::Document
         );
-
         assert_eq!(MediaType::from_str("unknown").unwrap(), MediaType::Unknown);
         assert_eq!(MediaType::from_str("UNKNOWN").unwrap(), MediaType::Unknown);
         assert_eq!(MediaType::from_str("Unknown").unwrap(), MediaType::Unknown);
@@ -115,7 +112,8 @@ mod tests {
     }
 
     #[test]
-    fn test_media_type_from_str_fails_invalid_string() {
+    fn media_type_from_str_fails_invalid_string() {
+        // invoke + check
         assert!(MediaType::from_str("NotAMediaType").is_err());
     }
 }
