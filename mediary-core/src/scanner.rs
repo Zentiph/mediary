@@ -24,7 +24,12 @@ use std::{
     path::PathBuf,
 };
 
-use crate::{data::database::SqliteInsertError, types::Media};
+use infer::MatcherType;
+
+use crate::{
+    data::database::SqliteInsertError,
+    types::{Media, MediaType},
+};
 
 /// An error that may occur during a file/directory scan.
 ///
@@ -69,4 +74,31 @@ pub struct ScanResult {
     pub inserted: Vec<Media>,
     pub skipped_duplicates: Vec<PathBuf>,
     pub errors: Vec<(PathBuf, ScanError)>,
+}
+
+/// Convert a mime type to a media type.
+///
+/// # Arguments
+///
+/// - `mime` (`Option<infer`) - The mime type.
+///
+/// # Returns
+///
+/// - `MediaType` - The media type.
+fn mime_to_media_type(mime: Option<infer::Type>) -> MediaType {
+    match mime {
+        Some(m) => {
+            let kind = m.matcher_type();
+            match kind {
+                MatcherType::Image => MediaType::Image,
+                MatcherType::Video => MediaType::Video,
+                MatcherType::Audio => MediaType::Audio,
+                MatcherType::Book | MatcherType::Doc | MatcherType::Text => {
+                    MediaType::Document
+                }
+                _ => MediaType::Unknown,
+            }
+        }
+        None => MediaType::Unknown,
+    }
 }
