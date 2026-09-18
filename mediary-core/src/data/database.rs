@@ -327,6 +327,35 @@ fn item_exists(
     conn.query_row(&query, params![id], |row| row.get(0))
 }
 
+/// Query a row that may or may not exist.
+///
+/// # Arguments
+///
+/// - `conn` (`&Connection`) - The DB connection.
+/// - `sql` (`&str`) - The SQL query.
+/// - `params` (`impl rusqlite`) - The parameters.
+/// - `mapper` (`impl FnOnce(&Row`) - The row mapper.
+///
+/// # Returns
+///
+/// - `Result<T, rusqlite::Error>, ) -> Result<Option<T>, SqliteSelectError>` - The item or None.
+///
+/// # Errors
+///
+/// If the query fails.
+fn query_row_optional<T>(
+    conn: &Connection,
+    sql: &str,
+    params: impl rusqlite::Params,
+    mapper: impl FnOnce(&Row) -> Result<T, rusqlite::Error>,
+) -> Result<Option<T>, SqliteSelectError> {
+    match conn.query_row(sql, params, mapper) {
+        Ok(x) => Ok(Some(x)),
+        Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
+        Err(e) => Err(SqliteSelectError::SqliteError(e)),
+    }
+}
+
 /// Execute a delete query.
 ///
 /// # Arguments
@@ -521,7 +550,8 @@ pub fn get_media_from_id(
     conn: &Connection,
     id: i64,
 ) -> Result<Option<Media>, SqliteSelectError> {
-    let res = conn.query_row(
+    query_row_optional(
+        conn,
         r#"
         SELECT id, path, media_type, size_bytes, added_at
         FROM media
@@ -529,13 +559,7 @@ pub fn get_media_from_id(
         "#,
         params![id],
         read_media_from_row,
-    );
-
-    match res {
-        Ok(media) => Ok(Some(media)),
-        Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
-        Err(e) => Err(SqliteSelectError::SqliteError(e)),
-    }
+    )
 }
 
 /// Get a media item from a file path.
@@ -557,7 +581,8 @@ pub fn get_media_from_path(
     conn: &Connection,
     path: &str,
 ) -> Result<Option<Media>, SqliteSelectError> {
-    let res = conn.query_row(
+    query_row_optional(
+        conn,
         r#"
             SELECT id, path, media_type, size_bytes, added_at
             FROM media
@@ -565,13 +590,7 @@ pub fn get_media_from_path(
             "#,
         params![path],
         read_media_from_row,
-    );
-
-    match res {
-        Ok(media) => Ok(Some(media)),
-        Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
-        Err(e) => Err(SqliteSelectError::SqliteError(e)),
-    }
+    )
 }
 
 /// Delete a media item from its ID.
@@ -696,7 +715,8 @@ pub fn get_tag_from_id(
     conn: &Connection,
     id: i64,
 ) -> Result<Option<Tag>, SqliteSelectError> {
-    let res = conn.query_row(
+    query_row_optional(
+        conn,
         r#"
         SELECT id, name, is_builtin
         FROM tags
@@ -704,13 +724,7 @@ pub fn get_tag_from_id(
         "#,
         params![id],
         read_tag_from_row,
-    );
-
-    match res {
-        Ok(tag) => Ok(Some(tag)),
-        Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
-        Err(e) => Err(SqliteSelectError::SqliteError(e)),
-    }
+    )
 }
 
 /// Get a tag from its name.
@@ -732,7 +746,8 @@ pub fn get_tag_from_name(
     conn: &Connection,
     name: &str,
 ) -> Result<Option<Tag>, SqliteSelectError> {
-    let res = conn.query_row(
+    query_row_optional(
+        conn,
         r#"
         SELECT id, name, is_builtin
         FROM tags
@@ -740,13 +755,7 @@ pub fn get_tag_from_name(
         "#,
         params![name],
         read_tag_from_row,
-    );
-
-    match res {
-        Ok(tag) => Ok(Some(tag)),
-        Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
-        Err(e) => Err(SqliteSelectError::SqliteError(e)),
-    }
+    )
 }
 
 /// Delete a tag from its ID.
