@@ -43,7 +43,6 @@ const DB_SCHEMA: &str = include_str!("schema.sql");
 // TODO: REPLACE ALL PANICS/.expect()s WITH PROPER ERROR PROPAGATION
 // TODO: Look into making media + tag deletions cascade so that tag-media
 //       relations don't point to non-existent items
-
 // TODO: See if it's worth it to heavily modularize this; there are many
 //       functions that share similar code but it's mostly just between 2
 //       functions
@@ -1319,7 +1318,7 @@ mod tests {
             id: None,
             name: "tag".into(),
         };
-        let tag = insert_tag(&conn, &tag).unwrap();
+        insert_tag(&conn, &tag).unwrap();
 
         // invoke
         let result = get_tag_from_name(&conn, "tag").unwrap();
@@ -1377,7 +1376,7 @@ mod tests {
             id: None,
             name: "tag".into(),
         };
-        let tag = insert_tag(&conn, &tag).unwrap();
+        insert_tag(&conn, &tag).unwrap();
 
         // invoke
         delete_tag_from_name(&conn, "tag").unwrap();
