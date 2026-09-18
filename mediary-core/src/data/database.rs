@@ -70,6 +70,11 @@ impl Display for DatabaseInitError {
     }
 }
 impl Error for DatabaseInitError {}
+impl From<rusqlite::Error> for DatabaseInitError {
+    fn from(e: rusqlite::Error) -> Self {
+        DatabaseInitError::Database(e)
+    }
+}
 
 /// An error that may occur on SQL insert instructions.
 ///
@@ -107,6 +112,11 @@ impl Display for SqliteInsertError {
     }
 }
 impl Error for SqliteInsertError {}
+impl From<rusqlite::Error> for SqliteInsertError {
+    fn from(e: rusqlite::Error) -> Self {
+        SqliteInsertError::SqliteError(e)
+    }
+}
 
 /// An error that may occur on SQL select instructions.
 ///
@@ -129,6 +139,11 @@ impl Display for SqliteSelectError {
     }
 }
 impl Error for SqliteSelectError {}
+impl From<rusqlite::Error> for SqliteSelectError {
+    fn from(e: rusqlite::Error) -> Self {
+        SqliteSelectError::SqliteError(e)
+    }
+}
 
 /// An error that may occur on SQL delete instructions.
 ///
@@ -160,6 +175,11 @@ impl Display for SqliteDeleteError {
     }
 }
 impl Error for SqliteDeleteError {}
+impl From<rusqlite::Error> for SqliteDeleteError {
+    fn from(e: rusqlite::Error) -> Self {
+        SqliteDeleteError::SqliteError(e)
+    }
+}
 
 /// Get the ID of a tag.
 ///
@@ -409,7 +429,7 @@ fn read_tag_from_row(row: &Row) -> Result<Tag, rusqlite::Error> {
 pub fn init_db() -> Result<Connection, DatabaseInitError> {
     let path = get_app_data_file(DB_NAME)
         .map_err(DatabaseInitError::AppDataDirectoryNotResolved)?;
-    init_db_at(&path).map_err(DatabaseInitError::Database)
+    Ok(init_db_at(&path)?)
 }
 
 /// Insert a media item into the database.
@@ -825,10 +845,8 @@ pub fn tag_media(
         None => return Err(SqliteInsertError::MissingRelationMember),
     };
 
-    let media_exists = item_exists(conn, "media", media_id)
-        .map_err(SqliteInsertError::SqliteError)?;
-    let tag_exists = item_exists(conn, "tags", tag_id)
-        .map_err(SqliteInsertError::SqliteError)?;
+    let media_exists = item_exists(conn, "media", media_id)?;
+    let tag_exists = item_exists(conn, "tags", tag_id)?;
 
     if !media_exists || !tag_exists {
         return Err(SqliteInsertError::MissingRelationMember);
@@ -876,30 +894,24 @@ pub fn get_tags_for_media(
         None => return Ok(None),
     };
 
-    if !item_exists(conn, "media", media_id)
-        .map_err(SqliteSelectError::SqliteError)?
-    {
+    if !item_exists(conn, "media", media_id)? {
         return Ok(None);
     }
 
-    let mut stmt = conn
-        .prepare(
-            r#"
+    let mut stmt = conn.prepare(
+        r#"
             SELECT t.id, t.name, t.is_builtin
             FROM media_tags mt
             JOIN tags t ON mt.tag_id = t.id
             WHERE mt.media_id = ?1
             "#,
-        )
-        .map_err(SqliteSelectError::SqliteError)?;
+    )?;
 
-    let tags_iter = stmt
-        .query_map(params![media_id], read_tag_from_row)
-        .map_err(SqliteSelectError::SqliteError)?;
+    let tags_iter = stmt.query_map(params![media_id], read_tag_from_row)?;
 
     let mut tags = Vec::new();
     for tag_result in tags_iter {
-        tags.push(tag_result.map_err(SqliteSelectError::SqliteError)?);
+        tags.push(tag_result?);
     }
 
     Ok(Some(tags))
@@ -929,30 +941,24 @@ pub fn get_media_for_tag(
     };
 
     // check if tag exists
-    if !item_exists(conn, "tags", tag_id)
-        .map_err(SqliteSelectError::SqliteError)?
-    {
+    if !item_exists(conn, "tags", tag_id)? {
         return Ok(None);
     }
 
-    let mut stmt = conn
-        .prepare(
-            r#"
+    let mut stmt = conn.prepare(
+        r#"
         SELECT m.id, m.path, m.media_type, m.size_bytes, m.added_at
         FROM media_tags mt
         JOIN media m ON mt.media_id = m.id
         WHERE mt.tag_id = ?1
         "#,
-        )
-        .map_err(SqliteSelectError::SqliteError)?;
+    )?;
 
-    let media_iter = stmt
-        .query_map(params![tag_id], read_media_from_row)
-        .map_err(SqliteSelectError::SqliteError)?;
+    let media_iter = stmt.query_map(params![tag_id], read_media_from_row)?;
 
     let mut media = Vec::new();
     for media_result in media_iter {
-        media.push(media_result.map_err(SqliteSelectError::SqliteError)?);
+        media.push(media_result?);
     }
 
     Ok(Some(media))
