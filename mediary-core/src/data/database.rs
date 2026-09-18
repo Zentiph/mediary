@@ -303,6 +303,23 @@ fn init_db_at(path: &Path) -> rusqlite::Result<Connection> {
     Ok(conn)
 }
 
+/// Check if an error is a constraint violation.
+///
+/// # Arguments
+///
+/// - `err` (`&rusqlite`) - The error.
+///
+/// # Returns
+///
+/// - `bool` - Whether the error is a constraint violation.
+fn is_constraint_violation(err: &rusqlite::Error) -> bool {
+    matches!(
+        err,
+        rusqlite::Error::SqliteFailure(e, _)
+            if e.code == rusqlite::ErrorCode::ConstraintViolation
+    )
+}
+
 /// Check if an item exists in a table.
 ///
 /// # Arguments
@@ -523,9 +540,7 @@ pub fn insert_media(
             m.id = Some(conn.last_insert_rowid());
             m
         }),
-        Err(rusqlite::Error::SqliteFailure(err, _))
-            if err.code == rusqlite::ErrorCode::ConstraintViolation =>
-        {
+        Err(e) if is_constraint_violation(&e) => {
             Err(SqliteInsertError::Duplicate)
         }
         Err(e) => Err(SqliteInsertError::SqliteError(e)),
@@ -686,9 +701,7 @@ pub fn insert_tag(
                     id: Some(conn.last_insert_rowid()),
                     name: name.clone(),
                 }),
-                Err(rusqlite::Error::SqliteFailure(err, _))
-                    if err.code == rusqlite::ErrorCode::ConstraintViolation =>
-                {
+                Err(e) if is_constraint_violation(&e) => {
                     Err(SqliteInsertError::Duplicate)
                 }
                 Err(e) => Err(SqliteInsertError::SqliteError(e)),
@@ -873,9 +886,7 @@ pub fn tag_media(
 
     match res {
         Ok(_) => Ok(conn.last_insert_rowid()),
-        Err(rusqlite::Error::SqliteFailure(err, _))
-            if err.code == rusqlite::ErrorCode::ConstraintViolation =>
-        {
+        Err(e) if is_constraint_violation(&e) => {
             Err(SqliteInsertError::Duplicate)
         }
         Err(e) => Err(SqliteInsertError::SqliteError(e)),
